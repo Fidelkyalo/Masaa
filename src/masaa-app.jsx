@@ -3,7 +3,7 @@ import {
   Calendar, Plus, Clock, CheckCircle2, Settings, Bell,
   LogOut, Menu, X, ChevronLeft, ChevronRight, Trash2,
   Edit2, Share2, Home, BookOpen, ListTodo, Users, BarChart2,
-  Repeat, AlarmClock, Palette, Mic, Send
+  Repeat, AlarmClock, Palette, Mic, Send, Brain
 } from 'lucide-react';
 import AuthScreen         from './components/AuthScreen.jsx';
 import ContactsPage       from './components/ContactsPage.jsx';
