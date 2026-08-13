@@ -183,6 +183,7 @@ export default function MASAAApp() {
     { id:'booking',    label:'Booking',    icon:BookOpen  },
     { id:'tasks',      label:'Tasks',      icon:ListTodo  },
     { id:'contacts',   label:'Contacts',   icon:Users     },
+    { id:'sharing',    label:'Sharing',    icon:Share2    },
     { id:'analytics',  label:'Analytics',  icon:BarChart2 },
     { id:'reports',    label:'Reports',    icon:Brain     },
     { id:'settings',   label:'Settings',   icon:Settings  },
@@ -244,9 +245,10 @@ export default function MASAAApp() {
             onDelete={id => upd({ tasks:data.tasks.filter(t=>t.id!==id) })}
             onUpdateTask={t => upd({ tasks:data.tasks.map(x=>x.id===t.id?t:x) })} />}
           {page==='contacts'  && <ContactsPage contacts={data.contacts||[]} onAdd={c=>upd({contacts:[...(data.contacts||[]),c]})} onDelete={id=>upd({contacts:(data.contacts||[]).filter(c=>c.id!==id)})} />}
+          {page==='sharing'   && <SharingPage events={data.events} calendars={data.calendars} sharedCalendars={data.sharedCalendars||[]} theme={theme} onShareCalendar={sc => upd({ sharedCalendars:[...(data.sharedCalendars||[]),sc] })} onRemoveShare={id => upd({ sharedCalendars:(data.sharedCalendars||[]).filter(s=>s.id!==id) })} />}
           {page==='analytics' && <AnalyticsPage events={data.events} tasks={data.tasks} />}
           {page==='reports'   && <ReportsPage events={data.events} tasks={data.tasks} user={session} theme={theme} />}
-          {page==='settings'  && <SettingsPage user={session} theme={theme} events={data.events} updateUser={u => { setSession(u); localStorage.setItem('masaa_session',JSON.stringify(u)); upd({ user:u }); }} sharedCalendars={data.sharedCalendars||[]} calendars={data.calendars} onShareCalendar={sc => upd({ sharedCalendars:[...(data.sharedCalendars||[]),sc] })} />}
+          {page==='settings'  && <SettingsPage user={session} theme={theme} updateUser={u => { setSession(u); localStorage.setItem('masaa_session',JSON.stringify(u)); upd({ user:u }); }} />}
         </div>
       </main>
       {showEvent && <EventModal event={editEvent} calendars={data.calendars} theme={theme}
@@ -297,11 +299,9 @@ function Sidebar({ nav, page, setPage, open, setOpen, theme, onLogout }) {
     );
   });
   const Logo = () => (
-    <div className="p-6 border-b border-white/20">
+    <div className="p-5 border-b border-white/20">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
-          <Calendar style={{ color:theme.primary }} size={22}/>
-        </div>
+        <img src="/logo.png" alt="MASAA" className="w-10 h-10 rounded-xl object-contain bg-white p-0.5" />
         <div><h1 className="text-xl font-bold text-white">MASAA</h1><p className="text-xs text-white/70">IT'S ABOUT TIME</p></div>
       </div>
     </div>
@@ -322,8 +322,11 @@ function Sidebar({ nav, page, setPage, open, setOpen, theme, onLogout }) {
       {/* Mobile overlay */}
       {open && <div className="fixed md:hidden inset-0 bg-black/50 z-40" onClick={() => setOpen(false)}/>}
       <div style={style} className={`fixed md:hidden top-0 left-0 h-screen w-64 z-50 flex flex-col transition-transform duration-300 ${open?'translate-x-0':'-translate-x-full'}`}>
-        <div className="p-6 border-b border-white/20 flex justify-between items-center">
-          <div className="flex items-center gap-2"><Calendar size={22} className="text-white"/><h1 className="text-xl font-bold text-white">MASAA</h1></div>
+        <div className="p-5 border-b border-white/20 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="MASAA" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5" />
+            <h1 className="text-xl font-bold text-white">MASAA</h1>
+          </div>
           <button onClick={() => setOpen(false)}><X size={24} className="text-white"/></button>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto"><NavItems closeMobile={true}/></nav>
@@ -391,11 +394,14 @@ function Dashboard({ data, setPage, theme, user, onAddEvent }) {
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[{label:'New Event',icon:<Plus size={18}/>,action:onAddEvent},{label:'Booking Page',icon:<Share2 size={18}/>,action:()=>setPage('booking')},{label:'Analytics',icon:<BarChart2 size={18}/>,action:()=>setPage('analytics')}].map((b,i)=>(
+        {[{label:'New Event',icon:<Plus size={18}/>,action:onAddEvent},{label:'Booking Page',icon:<Share2 size={18}/>,action:()=>setPage('booking')},{label:'Share Calendar',icon:<Users size={18}/>,action:()=>setPage('sharing')}].map((b,i)=>(
           <button key={i} onClick={b.action} style={i===0?{background:'var(--color-primary)',color:'#fff'}:{background:'var(--color-card)',color:'var(--color-primary)',border:`2px solid var(--color-primary)`}}
             className="flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition hover:opacity-80">{b.icon}{b.label}</button>
         ))}
       </div>
+
+      {/* Sharing quick panel */}
+      <SharingQuickCard setPage={setPage} sharedCalendars={data.sharedCalendars||[]} calendars={data.calendars} theme={theme} />
     </div>
   );
 }
@@ -846,27 +852,16 @@ function BookSlotPreview({ events, calendarId, theme }) {
 }
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
-function SettingsPage({ user, theme, updateUser, sharedCalendars, calendars, onShareCalendar, events }) {
+function SettingsPage({ user, theme, updateUser }) {
   const [tab,setTab]=useState('profile'); const [search,setSearch]=useState('');
-  const [shareEmail,setShareEmail]=useState(''); const [shareCal,setShareCal]=useState(calendars[0]?.id||''); const [sharePermission,setSharePermission]=useState('view');
   const inp="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2"; const is={ background:'var(--color-bg)', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.25)' };
   const filtered=THEMES.filter(t=>t.name.toLowerCase().includes(search.toLowerCase()));
-  const addShare=()=>{ if(!shareEmail.trim()) return; onShareCalendar({id:Date.now().toString(),calendarId:shareCal,email:shareEmail,permission:sharePermission,sharedAt:new Date().toLocaleDateString()}); setShareEmail(''); };
-  const tabs=[{id:'profile',label:'Profile'},{id:'themes',label:'Themes'},{id:'sharing',label:'Sharing'}];
-
-  const PERMISSIONS = [
-    { value:'view',       label:'View only',         desc:'Can see all events, cannot make changes.' },
-    { value:'book',       label:'Book free slots',   desc:'Can only add events in your free time. Busy slots are blocked and hidden.' },
-    { value:'edit',       label:'Add & Edit events', desc:'Can add new events and edit existing ones.' },
-    { value:'manage',     label:'Full manage',       desc:'Full control — add, edit, delete, and manage settings.' },
-  ];
-
+  const tabs=[{id:'profile',label:'Profile'},{id:'themes',label:'Themes'}];
   return (
     <div className="max-w-3xl space-y-6">
       <div className="flex gap-2 p-1 rounded-2xl w-fit" style={{ background:'var(--color-card)' }}>
         {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className="px-5 py-2 rounded-xl text-sm font-semibold transition" style={{ background:tab===t.id?'var(--color-primary)':'transparent', color:tab===t.id?'#fff':'var(--color-text-light)' }}>{t.label}</button>)}
       </div>
-
       {tab==='profile'&&(
         <div className="rounded-2xl shadow p-6 space-y-4" style={{ background:'var(--color-card)' }}>
           <h2 className="text-xl font-bold" style={{ color:'var(--color-text)' }}>Account Settings</h2>
@@ -883,7 +878,6 @@ function SettingsPage({ user, theme, updateUser, sharedCalendars, calendars, onS
           </div>
         </div>
       )}
-
       {tab==='themes'&&(
         <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
           <h2 className="text-xl font-bold mb-1" style={{ color:'var(--color-text)' }}>Choose Your Theme</h2>
@@ -902,73 +896,178 @@ function SettingsPage({ user, theme, updateUser, sharedCalendars, calendars, onS
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {tab==='sharing'&&(
+// ─── SHARING PAGE (standalone) ────────────────────────────────────────────────
+const PERMISSIONS = [
+  { value:'view',   label:'View only',       desc:'Can see all events, cannot make changes.' },
+  { value:'book',   label:'Book free slots', desc:'Can only add events in your free time. Busy slots are blocked.' },
+  { value:'edit',   label:'Add & Edit',      desc:'Can add new events and edit existing ones.' },
+  { value:'manage', label:'Full manage',     desc:'Full control — add, edit, delete, and manage settings.' },
+];
+
+function SharingPage({ events, calendars, sharedCalendars, theme, onShareCalendar, onRemoveShare }) {
+  const [shareEmail,setShareEmail]         = useState('');
+  const [shareCal,setShareCal]             = useState(calendars[0]?.id||'');
+  const [sharePermission,setSharePermission] = useState('view');
+
+  const inp="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2";
+  const is={ background:'var(--color-bg)', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.25)' };
+
+  const addShare = () => {
+    if (!shareEmail.trim()) return;
+    onShareCalendar({ id:Date.now().toString(), calendarId:shareCal, email:shareEmail, permission:sharePermission, sharedAt:new Date().toLocaleDateString() });
+    setShareEmail('');
+  };
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      {/* Header */}
+      <div className="rounded-2xl p-7 text-white" style={{ background:`linear-gradient(135deg,${theme.primary},${theme.secondary})` }}>
+        <div className="flex items-center gap-3 mb-1">
+          <Share2 size={26}/>
+          <h1 className="text-2xl font-bold">Calendar Sharing</h1>
+        </div>
+        <p className="text-white/70 text-sm">Share your calendars and control exactly what others can see or do.</p>
+      </div>
+
+      {/* Share form */}
+      <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
+        <h2 className="text-lg font-bold mb-1" style={{ color:'var(--color-text)' }}>Share a Calendar</h2>
+        <p className="text-sm mb-5" style={{ color:'var(--color-text-light)' }}>Pick a calendar, enter an email, and choose what they can do.</p>
         <div className="space-y-4">
-          <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
-            <h2 className="text-xl font-bold mb-1" style={{ color:'var(--color-text)' }}>Share a Calendar</h2>
-            <p className="text-sm mb-4" style={{ color:'var(--color-text-light)' }}>Control exactly what the recipient can do.</p>
-            <div className="space-y-4">
-              <div><label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Calendar</label>
-                <select className={inp} style={is} value={shareCal} onChange={e=>setShareCal(e.target.value)}>
-                  {calendars.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-              <div><label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Share with (email)</label>
-                <input className={inp} style={is} placeholder="colleague@example.com" value={shareEmail} onChange={e=>setShareEmail(e.target.value)}/></div>
-
-              {/* Permission cards */}
-              <div>
-                <label className="text-xs font-semibold mb-2 block" style={{ color:'var(--color-text-light)' }}>Permission Level</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {PERMISSIONS.map(p=>(
-                    <button key={p.value} onClick={()=>setSharePermission(p.value)}
-                      className="text-left p-4 rounded-xl border-2 transition hover:shadow-md"
-                      style={{ borderColor: sharePermission===p.value ? 'var(--color-primary)' : 'rgba(128,128,128,0.2)', background: sharePermission===p.value ? `var(--color-primary)12` : 'var(--color-bg)' }}>
-                      <div className="flex items-start gap-2">
-                        <div className="w-4 h-4 rounded-full border-2 flex-shrink-0 mt-0.5 flex items-center justify-center"
-                          style={{ borderColor:'var(--color-primary)', background: sharePermission===p.value ? 'var(--color-primary)' : 'transparent' }}>
-                          {sharePermission===p.value && <div className="w-1.5 h-1.5 rounded-full bg-white"/>}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>{p.label}</p>
-                          <p className="text-xs mt-0.5" style={{ color:'var(--color-text-light)' }}>{p.desc}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Live preview for "book" permission */}
-              {sharePermission==='book' && (
-                <BookSlotPreview events={events} calendarId={shareCal} theme={theme} />
-              )}
-
-              <button onClick={addShare} className="w-full py-2.5 rounded-xl text-white font-semibold text-sm hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>
-                Share Calendar
-              </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Calendar</label>
+              <select className={inp} style={is} value={shareCal} onChange={e=>setShareCal(e.target.value)}>
+                {calendars.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Share with (email)</label>
+              <input className={inp} style={is} placeholder="colleague@example.com" value={shareEmail} onChange={e=>setShareEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addShare()} />
             </div>
           </div>
 
-          {sharedCalendars.length>0&&(
-            <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
-              <h3 className="font-bold mb-3" style={{ color:'var(--color-text)' }}>Shared Calendars</h3>
-              <div className="space-y-2">
-                {sharedCalendars.map(sc=>{ const cal=calendars.find(c=>c.id===sc.calendarId);
-                  const perm = PERMISSIONS.find(p=>p.value===sc.permission);
-                  return (
-                  <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:'var(--color-bg)' }}>
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background:cal?.color||'var(--color-primary)' }}/>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold" style={{ color:'var(--color-text)' }}>{cal?.name||sc.calendarId}</p>
-                      <p className="text-xs" style={{ color:'var(--color-text-light)' }}>
-                        Shared with <span className="font-medium">{sc.email}</span> · <span className="font-medium">{perm?.label||sc.permission}</span> · {sc.sharedAt}
-                      </p>
+          {/* Permission selector */}
+          <div>
+            <label className="text-xs font-semibold mb-2 block" style={{ color:'var(--color-text-light)' }}>Permission Level</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {PERMISSIONS.map(p=>(
+                <button key={p.value} onClick={()=>setSharePermission(p.value)}
+                  className="text-left p-4 rounded-xl border-2 transition hover:shadow-md"
+                  style={{ borderColor:sharePermission===p.value?'var(--color-primary)':'rgba(128,128,128,0.18)', background:sharePermission===p.value?`var(--color-primary)12`:'var(--color-bg)' }}>
+                  <div className="flex items-start gap-2">
+                    <div className="w-4 h-4 rounded-full border-2 flex-shrink-0 mt-0.5 flex items-center justify-center"
+                      style={{ borderColor:'var(--color-primary)', background:sharePermission===p.value?'var(--color-primary)':'transparent' }}>
+                      {sharePermission===p.value&&<div className="w-1.5 h-1.5 rounded-full bg-white"/>}
                     </div>
-                    <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background:`var(--color-primary)15`, color:'var(--color-primary)' }}>{perm?.label||sc.permission}</span>
-                  </div>); })}
-              </div>
+                    <div>
+                      <p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>{p.label}</p>
+                      <p className="text-xs mt-0.5" style={{ color:'var(--color-text-light)' }}>{p.desc}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
+          </div>
+
+          {/* Live preview for book permission */}
+          {sharePermission==='book' && (
+            <BookSlotPreview events={events} calendarId={shareCal} theme={theme} />
           )}
+
+          <button onClick={addShare} className="w-full py-3 rounded-xl text-white font-bold text-sm hover:opacity-80 transition flex items-center justify-center gap-2" style={{ background:'var(--color-primary)' }}>
+            <Share2 size={16}/> Share Calendar
+          </button>
+        </div>
+      </div>
+
+      {/* Shared list */}
+      <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
+        <h2 className="text-lg font-bold mb-4" style={{ color:'var(--color-text)' }}>
+          Shared Calendars <span className="text-sm font-normal ml-1" style={{ color:'var(--color-text-light)' }}>({sharedCalendars.length})</span>
+        </h2>
+        {sharedCalendars.length === 0 ? (
+          <div className="text-center py-10">
+            <Share2 size={40} className="mx-auto mb-3 opacity-20" style={{ color:'var(--color-text)' }}/>
+            <p className="text-sm" style={{ color:'var(--color-text-light)' }}>No calendars shared yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sharedCalendars.map(sc => {
+              const cal  = calendars.find(c=>c.id===sc.calendarId);
+              const perm = PERMISSIONS.find(p=>p.value===sc.permission);
+              return (
+                <div key={sc.id} className="flex items-center gap-3 p-4 rounded-xl" style={{ background:'var(--color-bg)' }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background:`${cal?.color||'var(--color-primary)'}20` }}>
+                    <div className="w-3 h-3 rounded-full" style={{ background:cal?.color||'var(--color-primary)' }}/>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>{cal?.name||sc.calendarId}</p>
+                    <p className="text-xs mt-0.5" style={{ color:'var(--color-text-light)' }}>
+                      Shared with <span className="font-semibold">{sc.email}</span> · {sc.sharedAt}
+                    </p>
+                  </div>
+                  <span className="text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0" style={{ background:`var(--color-primary)18`, color:'var(--color-primary)' }}>{perm?.label||sc.permission}</span>
+                  {onRemoveShare && (
+                    <button onClick={()=>onRemoveShare(sc.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition flex-shrink-0">
+                      <X size={14}/>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── SHARING QUICK CARD (Dashboard widget) ────────────────────────────────────
+function SharingQuickCard({ setPage, sharedCalendars, calendars, theme }) {
+  return (
+    <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)', borderLeft:`4px solid var(--color-primary)` }}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-xl" style={{ background:`var(--color-primary)18` }}>
+            <Share2 size={18} style={{ color:'var(--color-primary)' }}/>
+          </div>
+          <div>
+            <h3 className="font-bold text-sm" style={{ color:'var(--color-text)' }}>Calendar Sharing</h3>
+            <p className="text-xs" style={{ color:'var(--color-text-light)' }}>{sharedCalendars.length} calendar{sharedCalendars.length!==1?'s':''} shared</p>
+          </div>
+        </div>
+        <button onClick={()=>setPage('sharing')} className="px-4 py-1.5 rounded-xl text-white text-xs font-semibold hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>
+          Manage
+        </button>
+      </div>
+      {sharedCalendars.length > 0 ? (
+        <div className="space-y-2">
+          {sharedCalendars.slice(0,3).map(sc => {
+            const cal  = calendars.find(c=>c.id===sc.calendarId);
+            const perm = PERMISSIONS.find(p=>p.value===sc.permission);
+            return (
+              <div key={sc.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background:'var(--color-bg)' }}>
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background:cal?.color||'var(--color-primary)' }}/>
+                <span className="text-xs flex-1 truncate font-medium" style={{ color:'var(--color-text)' }}>{cal?.name} → {sc.email}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background:`var(--color-primary)15`, color:'var(--color-primary)' }}>{perm?.label}</span>
+              </div>
+            );
+          })}
+          {sharedCalendars.length > 3 && (
+            <button onClick={()=>setPage('sharing')} className="text-xs font-semibold hover:underline w-full text-center pt-1" style={{ color:'var(--color-primary)' }}>
+              +{sharedCalendars.length-3} more — View all
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between p-3 rounded-xl" style={{ background:'var(--color-bg)' }}>
+          <p className="text-xs" style={{ color:'var(--color-text-light)' }}>No calendars shared yet.</p>
+          <button onClick={()=>setPage('sharing')} className="text-xs font-semibold hover:underline" style={{ color:'var(--color-primary)' }}>Share now →</button>
         </div>
       )}
     </div>
