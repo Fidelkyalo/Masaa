@@ -246,7 +246,7 @@ export default function MASAAApp() {
           {page==='contacts'  && <ContactsPage contacts={data.contacts||[]} onAdd={c=>upd({contacts:[...(data.contacts||[]),c]})} onDelete={id=>upd({contacts:(data.contacts||[]).filter(c=>c.id!==id)})} />}
           {page==='analytics' && <AnalyticsPage events={data.events} tasks={data.tasks} />}
           {page==='reports'   && <ReportsPage events={data.events} tasks={data.tasks} user={session} theme={theme} />}
-          {page==='settings'  && <SettingsPage user={session} theme={theme} updateUser={u => { setSession(u); localStorage.setItem('masaa_session',JSON.stringify(u)); upd({ user:u }); }} sharedCalendars={data.sharedCalendars||[]} calendars={data.calendars} onShareCalendar={sc => upd({ sharedCalendars:[...(data.sharedCalendars||[]),sc] })} />}
+          {page==='settings'  && <SettingsPage user={session} theme={theme} events={data.events} updateUser={u => { setSession(u); localStorage.setItem('masaa_session',JSON.stringify(u)); upd({ user:u }); }} sharedCalendars={data.sharedCalendars||[]} calendars={data.calendars} onShareCalendar={sc => upd({ sharedCalendars:[...(data.sharedCalendars||[]),sc] })} />}
         </div>
       </main>
       {showEvent && <EventModal event={editEvent} calendars={data.calendars} theme={theme}
@@ -763,14 +763,104 @@ function BookingPage({ bookingPage, events, theme, update }) {
   );
 }
 
+// ─── BOOK SLOT PREVIEW ───────────────────────────────────────────────────────
+function BookSlotPreview({ events, calendarId, theme }) {
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const today = new Date();
+  const HOURS = [8,9,10,11,12,13,14,15,16,17];
+  const days  = Array.from({length:5}, (_,i) => {
+    const d = new Date(today); d.setDate(today.getDate() - today.getDay() + 1 + i); return d;
+  });
+  const isBusy = (date, hour) => {
+    const ds = date.toISOString().split('T')[0];
+    return events.some(e => {
+      if (e.date !== ds) return false;
+      const [sh] = e.startTime.split(':').map(Number);
+      const [eh] = e.endTime.split(':').map(Number);
+      return hour >= sh && hour < eh;
+    });
+  };
+  const key = (d, h) => `${d.toISOString().split('T')[0]}-${h}`;
+  return (
+    <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor:'var(--color-primary)' }}>
+      <div className="px-4 py-2.5 flex items-center gap-2" style={{ background:`var(--color-primary)18` }}>
+        <div className="w-2 h-2 rounded-full" style={{ background:'var(--color-primary)' }}/>
+        <p className="text-xs font-bold" style={{ color:'var(--color-primary)' }}>
+          Preview — what the recipient sees with "Book free slots"
+        </p>
+      </div>
+      <div className="p-4" style={{ background:'var(--color-bg)' }}>
+        <div className="flex gap-4 mb-3 text-xs flex-wrap" style={{ color:'var(--color-text-light)' }}>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-100 border border-green-300 inline-block"/>Free</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded inline-block" style={{ background:'rgba(128,128,128,0.2)' }}/>Busy (blocked)</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded inline-block" style={{ background:'var(--color-primary)' }}/>Your booking</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr>
+                <th className="w-10 pb-2" style={{ color:'var(--color-text-light)' }}/>
+                {days.map((d,i)=>(
+                  <th key={i} className="pb-2 text-center font-semibold" style={{ color:'var(--color-text)' }}>
+                    <div>{['Mon','Tue','Wed','Thu','Fri'][i]}</div>
+                    <div className="font-normal opacity-60">{d.getDate()}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {HOURS.map(h=>(
+                <tr key={h}>
+                  <td className="pr-2 text-right pb-1" style={{ color:'var(--color-text-light)' }}>{String(h).padStart(2,'0')}:00</td>
+                  {days.map((d,i)=>{
+                    const busy=isBusy(d,h), k=key(d,h), booked=bookedSlots.includes(k);
+                    return (
+                      <td key={i} className="pb-1 px-0.5">
+                        <button disabled={busy} onClick={()=>setBookedSlots(b=>booked?b.filter(s=>s!==k):[...b,k])}
+                          title={busy?'Busy — unavailable':`Book ${String(h).padStart(2,'0')}:00`}
+                          className="w-full h-7 rounded-lg font-semibold transition"
+                          style={{
+                            background: busy?'rgba(128,128,128,0.12)':booked?'var(--color-primary)':'#dcfce7',
+                            color:      busy?'rgba(128,128,128,0.35)':booked?'#fff':'#15803d',
+                            cursor:     busy?'not-allowed':'pointer',
+                            border:     '1.5px solid ' + (busy?'transparent':booked?'var(--color-primary)':'#86efac'),
+                          }}>
+                          {busy?'✕':booked?'✓':'+'}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {bookedSlots.length>0&&(
+          <div className="mt-3 p-3 rounded-xl text-xs" style={{ background:'var(--color-primary)12', color:'var(--color-primary)' }}>
+            <span className="font-bold">{bookedSlots.length} slot{bookedSlots.length!==1?'s':''} selected.</span> The recipient can confirm. You will receive a notification.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
-function SettingsPage({ user, theme, updateUser, sharedCalendars, calendars, onShareCalendar }) {
+function SettingsPage({ user, theme, updateUser, sharedCalendars, calendars, onShareCalendar, events }) {
   const [tab,setTab]=useState('profile'); const [search,setSearch]=useState('');
   const [shareEmail,setShareEmail]=useState(''); const [shareCal,setShareCal]=useState(calendars[0]?.id||''); const [sharePermission,setSharePermission]=useState('view');
   const inp="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2"; const is={ background:'var(--color-bg)', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.25)' };
   const filtered=THEMES.filter(t=>t.name.toLowerCase().includes(search.toLowerCase()));
   const addShare=()=>{ if(!shareEmail.trim()) return; onShareCalendar({id:Date.now().toString(),calendarId:shareCal,email:shareEmail,permission:sharePermission,sharedAt:new Date().toLocaleDateString()}); setShareEmail(''); };
   const tabs=[{id:'profile',label:'Profile'},{id:'themes',label:'Themes'},{id:'sharing',label:'Sharing'}];
+
+  const PERMISSIONS = [
+    { value:'view',       label:'View only',         desc:'Can see all events, cannot make changes.' },
+    { value:'book',       label:'Book free slots',   desc:'Can only add events in your free time. Busy slots are blocked and hidden.' },
+    { value:'edit',       label:'Add & Edit events', desc:'Can add new events and edit existing ones.' },
+    { value:'manage',     label:'Full manage',       desc:'Full control — add, edit, delete, and manage settings.' },
+  ];
+
   return (
     <div className="max-w-3xl space-y-6">
       <div className="flex gap-2 p-1 rounded-2xl w-fit" style={{ background:'var(--color-card)' }}>
@@ -816,27 +906,65 @@ function SettingsPage({ user, theme, updateUser, sharedCalendars, calendars, onS
       {tab==='sharing'&&(
         <div className="space-y-4">
           <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
-            <h2 className="text-xl font-bold mb-4" style={{ color:'var(--color-text)' }}>Share a Calendar</h2>
-            <div className="space-y-3">
+            <h2 className="text-xl font-bold mb-1" style={{ color:'var(--color-text)' }}>Share a Calendar</h2>
+            <p className="text-sm mb-4" style={{ color:'var(--color-text-light)' }}>Control exactly what the recipient can do.</p>
+            <div className="space-y-4">
               <div><label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Calendar</label>
                 <select className={inp} style={is} value={shareCal} onChange={e=>setShareCal(e.target.value)}>
                   {calendars.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
               <div><label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Share with (email)</label>
                 <input className={inp} style={is} placeholder="colleague@example.com" value={shareEmail} onChange={e=>setShareEmail(e.target.value)}/></div>
-              <div><label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Permission</label>
-                <select className={inp} style={is} value={sharePermission} onChange={e=>setSharePermission(e.target.value)}>
-                  <option value="view">View only</option><option value="edit">Add &amp; Edit events</option><option value="manage">Full manage</option></select></div>
-              <button onClick={addShare} className="w-full py-2.5 rounded-xl text-white font-semibold text-sm hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>Share Calendar</button>
+
+              {/* Permission cards */}
+              <div>
+                <label className="text-xs font-semibold mb-2 block" style={{ color:'var(--color-text-light)' }}>Permission Level</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {PERMISSIONS.map(p=>(
+                    <button key={p.value} onClick={()=>setSharePermission(p.value)}
+                      className="text-left p-4 rounded-xl border-2 transition hover:shadow-md"
+                      style={{ borderColor: sharePermission===p.value ? 'var(--color-primary)' : 'rgba(128,128,128,0.2)', background: sharePermission===p.value ? `var(--color-primary)12` : 'var(--color-bg)' }}>
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 rounded-full border-2 flex-shrink-0 mt-0.5 flex items-center justify-center"
+                          style={{ borderColor:'var(--color-primary)', background: sharePermission===p.value ? 'var(--color-primary)' : 'transparent' }}>
+                          {sharePermission===p.value && <div className="w-1.5 h-1.5 rounded-full bg-white"/>}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>{p.label}</p>
+                          <p className="text-xs mt-0.5" style={{ color:'var(--color-text-light)' }}>{p.desc}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live preview for "book" permission */}
+              {sharePermission==='book' && (
+                <BookSlotPreview events={events} calendarId={shareCal} theme={theme} />
+              )}
+
+              <button onClick={addShare} className="w-full py-2.5 rounded-xl text-white font-semibold text-sm hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>
+                Share Calendar
+              </button>
             </div>
           </div>
+
           {sharedCalendars.length>0&&(
             <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
               <h3 className="font-bold mb-3" style={{ color:'var(--color-text)' }}>Shared Calendars</h3>
               <div className="space-y-2">
-                {sharedCalendars.map(sc=>{ const cal=calendars.find(c=>c.id===sc.calendarId); return (
+                {sharedCalendars.map(sc=>{ const cal=calendars.find(c=>c.id===sc.calendarId);
+                  const perm = PERMISSIONS.find(p=>p.value===sc.permission);
+                  return (
                   <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background:'var(--color-bg)' }}>
-                    <div className="w-3 h-3 rounded-full" style={{ background:cal?.color||'var(--color-primary)' }}/>
-                    <div className="flex-1"><p className="text-sm font-semibold" style={{ color:'var(--color-text)' }}>{cal?.name||sc.calendarId}</p><p className="text-xs" style={{ color:'var(--color-text-light)' }}>Shared with {sc.email} · {sc.permission} · {sc.sharedAt}</p></div>
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background:cal?.color||'var(--color-primary)' }}/>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold" style={{ color:'var(--color-text)' }}>{cal?.name||sc.calendarId}</p>
+                      <p className="text-xs" style={{ color:'var(--color-text-light)' }}>
+                        Shared with <span className="font-medium">{sc.email}</span> · <span className="font-medium">{perm?.label||sc.permission}</span> · {sc.sharedAt}
+                      </p>
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background:`var(--color-primary)15`, color:'var(--color-primary)' }}>{perm?.label||sc.permission}</span>
                   </div>); })}
               </div>
             </div>
