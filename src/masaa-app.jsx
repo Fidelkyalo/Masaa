@@ -5,10 +5,11 @@ import {
   Edit2, Share2, Home, BookOpen, ListTodo, Users, BarChart2,
   Repeat, AlarmClock, Palette, Mic, Send
 } from 'lucide-react';
-import AuthScreen        from './components/AuthScreen.jsx';
-import ContactsPage      from './components/ContactsPage.jsx';
-import AnalyticsPage     from './components/AnalyticsPage.jsx';
+import AuthScreen         from './components/AuthScreen.jsx';
+import ContactsPage       from './components/ContactsPage.jsx';
+import AnalyticsPage      from './components/AnalyticsPage.jsx';
 import NotificationCenter from './components/NotificationCenter.jsx';
+import ReportsPage        from './components/ReportsPage.jsx';
 
 // ─── 50 THEMES ────────────────────────────────────────────────────────────────
 export const THEMES = [
@@ -183,6 +184,7 @@ export default function MASAAApp() {
     { id:'tasks',      label:'Tasks',      icon:ListTodo  },
     { id:'contacts',   label:'Contacts',   icon:Users     },
     { id:'analytics',  label:'Analytics',  icon:BarChart2 },
+    { id:'reports',    label:'AI Reports', icon:Brain     },
     { id:'settings',   label:'Settings',   icon:Settings  },
   ];
 
@@ -243,6 +245,7 @@ export default function MASAAApp() {
             onUpdateTask={t => upd({ tasks:data.tasks.map(x=>x.id===t.id?t:x) })} />}
           {page==='contacts'  && <ContactsPage contacts={data.contacts||[]} onAdd={c=>upd({contacts:[...(data.contacts||[]),c]})} onDelete={id=>upd({contacts:(data.contacts||[]).filter(c=>c.id!==id)})} />}
           {page==='analytics' && <AnalyticsPage events={data.events} tasks={data.tasks} />}
+          {page==='reports'   && <ReportsPage events={data.events} tasks={data.tasks} user={session} theme={theme} />}
           {page==='settings'  && <SettingsPage user={session} theme={theme} updateUser={u => { setSession(u); localStorage.setItem('masaa_session',JSON.stringify(u)); upd({ user:u }); }} sharedCalendars={data.sharedCalendars||[]} calendars={data.calendars} onShareCalendar={sc => upd({ sharedCalendars:[...(data.sharedCalendars||[]),sc] })} />}
         </div>
       </main>
