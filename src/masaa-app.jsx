@@ -997,6 +997,25 @@ function SettingsPage({ user, theme, updateUser }) {
   const tabs=[{id:'profile',label:'Profile'},{id:'themes',label:'Themes'}];
   const [tzSearch, setTzSearch] = useState('');
   const [tzOpen, setTzOpen]     = useState(false);
+  const [tzTyping, setTzTyping] = useState(false); // true while user is actively typing
+
+  // Auto-detect timezone from device on mount (no permission needed — Intl API)
+  useEffect(() => {
+    if (!user.timezone) {
+      try {
+        const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        // Map IANA timezone to our UTC offset format
+        const now = new Date();
+        const offset = -now.getTimezoneOffset(); // minutes
+        const h = Math.floor(Math.abs(offset) / 60);
+        const m = Math.abs(offset) % 60;
+        const sign = offset >= 0 ? '+' : '-';
+        const utc = `UTC${sign}${h}${m ? ':' + String(m).padStart(2,'0') : ''}`;
+        const matched = ALL_TIMEZONES.find(t => t.value === utc);
+        if (matched) updateUser({ ...user, timezone: matched.value });
+      } catch {}
+    }
+  }, []);
 
   // timezone list moved to ALL_TIMEZONES module-level constant below
 
@@ -1022,35 +1041,31 @@ function SettingsPage({ user, theme, updateUser }) {
             <label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Timezone</label>
             <input className={inp} style={is}
               placeholder="Search city, country or UTC offset…"
-              value={tzSearch || user.timezone || ''}
-              onFocus={() => { setTzOpen(true); setTzSearch(''); }}
-              onChange={e => { setTzSearch(e.target.value); setTzOpen(true); }}
+              value={tzTyping ? tzSearch : (user.timezone ? `${user.timezone} — ${ALL_TIMEZONES.find(t=>t.value===user.timezone)?.cities||''}` : '')}
+              onFocus={() => { setTzOpen(true); setTzTyping(true); setTzSearch(''); }}
+              onChange={e => { setTzSearch(e.target.value); setTzTyping(true); setTzOpen(true); }}
+              onBlur={() => { setTimeout(() => { setTzOpen(false); setTzTyping(false); }, 150); }}
             />
             {tzOpen && (
-              <div className="absolute z-50 w-full mt-1 rounded-xl shadow-xl border overflow-hidden" style={{ background:'var(--color-card)', borderColor:'rgba(128,128,128,0.2)', maxHeight:260, overflowY:'auto' }}>
+              <div className="absolute z-50 w-full mt-1 rounded-xl shadow-xl border overflow-y-auto" style={{ background:'var(--color-card)', borderColor:'rgba(128,128,128,0.2)', maxHeight:260 }}>
                 {ALL_TIMEZONES.filter(tz => {
-                  const q = (tzSearch||'').toLowerCase();
-                  return !q || tz.label.toLowerCase().includes(q) || tz.value.toLowerCase().includes(q);
+                  const q = tzSearch.toLowerCase();
+                  return !q || tz.label.toLowerCase().includes(q) || tz.value.toLowerCase().includes(q) || tz.cities.toLowerCase().includes(q);
                 }).slice(0,40).map(tz => (
                   <button key={tz.value} onMouseDown={e=>e.preventDefault()} onClick={() => {
                     updateUser({...user, timezone: tz.value});
-                    setTzSearch(''); setTzOpen(false);
-                  }} className="w-full text-left px-4 py-2.5 text-sm hover:opacity-80 transition border-b last:border-0"
-                    style={{ background: user.timezone===tz.value ? `var(--color-primary)15` : 'transparent', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.08)', fontWeight: user.timezone===tz.value?700:400 }}>
-                    <span className="font-mono text-xs mr-2 font-semibold" style={{ color:'var(--color-primary)' }}>{tz.value}</span>
-                    {tz.cities}
+                    setTzSearch(''); setTzTyping(false); setTzOpen(false);
+                  }} className="w-full text-left px-4 py-2.5 text-sm border-b last:border-0 transition hover:bg-black/5"
+                    style={{ background: user.timezone===tz.value ? `var(--color-primary)18` : 'transparent', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.08)', fontWeight: user.timezone===tz.value ? 700 : 400 }}>
+                    <span className="font-mono text-xs mr-2 font-bold" style={{ color:'var(--color-primary)' }}>{tz.value}</span>
+                    <span style={{ color:'var(--color-text-light)' }}>{tz.cities}</span>
+                    {user.timezone===tz.value && <span className="ml-2 text-xs" style={{ color:'var(--color-primary)' }}>✓</span>}
                   </button>
                 ))}
-                {ALL_TIMEZONES.filter(tz=>{ const q=(tzSearch||'').toLowerCase(); return !q||tz.label.toLowerCase().includes(q)||tz.value.toLowerCase().includes(q); }).length===0 &&
-                  <div className="px-4 py-3 text-sm" style={{ color:'var(--color-text-light)' }}>No results found</div>
+                {ALL_TIMEZONES.filter(tz=>{ const q=tzSearch.toLowerCase(); return !q||tz.label.toLowerCase().includes(q)||tz.value.toLowerCase().includes(q)||tz.cities.toLowerCase().includes(q); }).length===0 &&
+                  <div className="px-4 py-3 text-sm" style={{ color:'var(--color-text-light)' }}>No results — try a city name or "UTC+3"</div>
                 }
               </div>
-            )}
-            {tzOpen && <div className="fixed inset-0 z-40" onClick={()=>setTzOpen(false)}/>}
-            {user.timezone && !tzOpen && (
-              <p className="text-xs mt-1" style={{ color:'var(--color-text-light)' }}>
-                {ALL_TIMEZONES.find(t=>t.value===user.timezone)?.cities || user.timezone}
-              </p>
             )}
           </div>
           <button className="w-full py-2.5 rounded-xl text-white font-semibold text-sm hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>Save Changes</button>
