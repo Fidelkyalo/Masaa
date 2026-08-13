@@ -3,13 +3,15 @@ import {
   Calendar, Plus, Clock, CheckCircle2, Settings, Bell,
   LogOut, Menu, X, ChevronLeft, ChevronRight, Trash2,
   Edit2, Share2, Home, BookOpen, ListTodo, Users, BarChart2,
-  Repeat, AlarmClock, Palette, Mic, Send, Brain
+  Repeat, AlarmClock, Palette, Mic, Send, Brain, Target
 } from 'lucide-react';
 import AuthScreen         from './components/AuthScreen.jsx';
 import ContactsPage       from './components/ContactsPage.jsx';
 import AnalyticsPage      from './components/AnalyticsPage.jsx';
 import NotificationCenter from './components/NotificationCenter.jsx';
 import ReportsPage        from './components/ReportsPage.jsx';
+import GoalsPage          from './components/GoalsPage.jsx';
+import AIAssistant, { parseNaturalEventEnhanced, suggestPriority } from './components/AIAssistant.jsx';
 
 // ─── 50 THEMES ────────────────────────────────────────────────────────────────
 export const THEMES = [
@@ -106,6 +108,10 @@ const defaultData = {
     { id:'n3', type:'invite', title:'New invitation',           message:'Sarah invited you to Book Club on Friday.',  time:'2 hr ago', read:true  },
   ],
   sharedCalendars:[],
+  goals:[
+    { id:'g1', title:'Complete MASAA MVP', category:'Work', deadline: new Date(Date.now()+30*86400000).toISOString().split('T')[0], target:100, current:60, color:'#3b82f6', description:'Ship the full MVP', linkedTasks:['1','2'], createdAt: new Date().toISOString().split('T')[0] },
+    { id:'g2', title:'Read 12 books this year', category:'Learning', deadline: new Date(Date.now()+180*86400000).toISOString().split('T')[0], target:12, current:4, color:'#10b981', description:'', linkedTasks:[], createdAt: new Date().toISOString().split('T')[0] },
+  ],
 };
 
 function loadData() { try { const s=localStorage.getItem(STORAGE_KEY); return s?JSON.parse(s):defaultData; } catch { return defaultData; } }
@@ -162,6 +168,7 @@ export default function MASAAApp() {
   const [editEvent, setEditEvent]     = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showNotif, setShowNotif]     = useState(false);
+  const [showAI, setShowAI]           = useState(false);
   const notifRef = useRef(null);
 
   const theme = THEMES.find(t => t.id === (session?.themeId || data?.user?.themeId || 'blue-white')) || THEMES[0];
@@ -183,6 +190,7 @@ export default function MASAAApp() {
     { id:'booking',    label:'Booking',    icon:BookOpen  },
     { id:'tasks',      label:'Tasks',      icon:ListTodo  },
     { id:'contacts',   label:'Contacts',   icon:Users     },
+    { id:'goals',      label:'Goals',       icon:Target    },
     { id:'sharing',    label:'Sharing',    icon:Share2    },
     { id:'analytics',  label:'Analytics',  icon:BarChart2 },
     { id:'reports',    label:'Reports',    icon:Brain     },
@@ -213,8 +221,14 @@ export default function MASAAApp() {
             </div>
           )}
           {/* Natural language input */}
-          <NLInput onCreate={ev => { upd({ events:[...data.events,{...ev,id:Date.now().toString()}] }); }} />
+          <NLInput contacts={data.contacts||[]} onCreate={ev => { upd({ events:[...data.events,{...ev,id:Date.now().toString()}] }); }} />
           <div className="flex items-center gap-3">
+            {/* AI Assistant button */}
+            <button onClick={() => setShowAI(true)} title="AI Scheduling Assistant"
+              className="p-2 hover:bg-black/10 rounded-lg transition hidden sm:flex items-center gap-1"
+              style={{ color:'var(--color-primary)' }}>
+              <Brain size={20}/>
+            </button>
             {/* Bell */}
             <div className="relative" ref={notifRef}>
               <button onClick={() => setShowNotif(!showNotif)} className="p-2 hover:bg-black/10 rounded-lg relative transition">
@@ -248,32 +262,40 @@ export default function MASAAApp() {
             onDelete={id => upd({ tasks:data.tasks.filter(t=>t.id!==id) })}
             onUpdateTask={t => upd({ tasks:data.tasks.map(x=>x.id===t.id?t:x) })} />}
           {page==='contacts'  && <ContactsPage contacts={data.contacts||[]} onAdd={c=>upd({contacts:[...(data.contacts||[]),c]})} onDelete={id=>upd({contacts:(data.contacts||[]).filter(c=>c.id!==id)})} />}
+          {page==='goals'     && <GoalsPage goals={data.goals||[]} tasks={data.tasks} theme={theme}
+            onAddGoal={g=>upd({goals:[...(data.goals||[]),g]})}
+            onDeleteGoal={id=>upd({goals:(data.goals||[]).filter(g=>g.id!==id)})}
+            onUpdateGoal={g=>upd({goals:(data.goals||[]).map(x=>x.id===g.id?g:x)})}
+            onLinkTask={(gid,tid)=>upd({goals:(data.goals||[]).map(g=>g.id===gid?{...g,linkedTasks:[...(g.linkedTasks||[]),tid]}:g)})} />}
           {page==='sharing'   && <SharingPage events={data.events} calendars={data.calendars} sharedCalendars={data.sharedCalendars||[]} theme={theme} onShareCalendar={sc => upd({ sharedCalendars:[...(data.sharedCalendars||[]),sc] })} onRemoveShare={id => upd({ sharedCalendars:(data.sharedCalendars||[]).filter(s=>s.id!==id) })} onUpdateShare={(id,perm) => upd({ sharedCalendars:(data.sharedCalendars||[]).map(s=>s.id===id?{...s,permission:perm}:s) })} />}
           {page==='analytics' && <AnalyticsPage events={data.events} tasks={data.tasks} />}
           {page==='reports'   && <ReportsPage events={data.events} tasks={data.tasks} user={session} theme={theme} />}
           {page==='settings'  && <SettingsPage user={session} theme={theme} updateUser={u => { setSession(u); localStorage.setItem('masaa_session',JSON.stringify(u)); upd({ user:u }); }} />}
         </div>
       </main>
-      {showEvent && <EventModal event={editEvent} calendars={data.calendars} theme={theme}
+      {showEvent && <EventModal event={editEvent} calendars={data.calendars} contacts={data.contacts||[]} theme={theme}
         onClose={() => { setShowEvent(false); setEditEvent(null); }}
         onSave={ev => {
           upd({ events: editEvent ? data.events.map(e=>e.id===ev.id?ev:e) : [...data.events,{...ev,id:Date.now().toString()}] });
           setShowEvent(false); setEditEvent(null);
         }} />}
+      {showAI && <AIAssistant events={data.events} tasks={data.tasks} contacts={data.contacts||[]} theme={theme}
+        onCreateEvent={ev=>{ upd({ events:[...data.events,{...ev,id:Date.now().toString()}] }); }}
+        onClose={()=>setShowAI(false)} />}
     </div>
   );
 }
 
 // ─── NATURAL LANGUAGE INPUT ───────────────────────────────────────────────────
-function NLInput({ onCreate }) {
+function NLInput({ contacts, onCreate }) {
   const [val, setVal] = useState('');
   const [hint, setHint] = useState('');
   const submit = () => {
     if (!val.trim()) return;
-    const ev = parseNaturalEvent(val);
-    setHint(`✓ Created "${ev.title}" on ${ev.date} at ${ev.startTime}`);
+    const ev = parseNaturalEventEnhanced(val, contacts);
+    setHint(`✓ Created "${ev.title}" on ${ev.date} at ${ev.startTime}${ev.attendees.length>0?' with '+ev.attendees.map(a=>a.name||a.email).join(', '):''}`);
     onCreate(ev); setVal('');
-    setTimeout(() => setHint(''), 3000);
+    setTimeout(() => setHint(''), 3500);
   };
   return (
     <div className="hidden md:flex flex-col relative flex-1 max-w-sm">
@@ -411,6 +433,37 @@ function Dashboard({ data, setPage, theme, user, onAddEvent }) {
 
       {/* Sharing quick panel */}
       <SharingQuickCard setPage={setPage} sharedCalendars={data.sharedCalendars||[]} calendars={data.calendars} theme={theme} />
+
+      {/* Goals quick panel */}
+      {(data.goals||[]).length > 0 && (
+        <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)', borderLeft:`4px solid var(--color-primary)` }}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl" style={{ background:`var(--color-primary)18` }}><Target size={18} style={{ color:'var(--color-primary)' }}/></div>
+              <h3 className="font-bold text-sm" style={{ color:'var(--color-text)' }}>Goals Progress</h3>
+            </div>
+            <button onClick={()=>setPage('goals')} className="px-4 py-1.5 rounded-xl text-white text-xs font-semibold hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>View All</button>
+          </div>
+          <div className="space-y-3">
+            {(data.goals||[]).slice(0,3).map(g=>{
+              const pct = g.linkedTasks?.length>0
+                ? Math.round((data.tasks.filter(t=>g.linkedTasks.includes(t.id)&&t.completed).length/g.linkedTasks.length)*100)
+                : (g.current||0);
+              return (
+                <div key={g.id}>
+                  <div className="flex justify-between mb-1">
+                    <span className="text-xs font-semibold" style={{ color:'var(--color-text)' }}>{g.title}</span>
+                    <span className="text-xs font-bold" style={{ color:g.color }}>{pct}%</span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background:'rgba(128,128,128,0.12)' }}>
+                    <div className="h-full rounded-full transition-all" style={{ width:`${Math.min(100,pct)}%`, background:g.color }}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -560,7 +613,7 @@ const REMINDER_LABELS={'5':'5 min','10':'10 min','15':'15 min','30':'30 min','60
 const RECURRING_OPTS=['none','daily','weekly','biweekly','monthly','yearly'];
 const INVITE_STATUS={ pending:'🕐 Pending', accepted:'✅ Accepted', declined:'❌ Declined', maybe:'🤔 Maybe' };
 
-function EventModal({ event, calendars, theme, onClose, onSave }) {
+function EventModal({ event, calendars, contacts, theme, onClose, onSave }) {
   const [title,setTitle]=useState(event?.title||'');
   const [date,setDate]=useState(event?.date||new Date().toISOString().split('T')[0]);
   const [startTime,setStartTime]=useState(event?.startTime||'09:00');
@@ -642,16 +695,13 @@ function EventModal({ event, calendars, theme, onClose, onSave }) {
           {/* Attendees */}
           <div>
             <label className="text-xs font-semibold mb-2 block" style={{ color:'var(--color-text-light)' }}>Attendees</label>
-            <div className="flex gap-2 mb-2">
-              <input className={`flex-1 ${inp}`} style={is} placeholder="email@example.com" value={attendeeInput} onChange={e=>setAttendeeInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addAttendee()}/>
-              <button onClick={addAttendee} className="px-3 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>Add</button>
-            </div>
+            <ContactAttendeeInput contacts={contacts||[]} attendees={attendees} onAdd={a=>setAttendees(prev=>[...prev,a])} inp={inp} is={is} theme={theme}/>
             {attendees.length>0&&(
-              <div className="space-y-2">
+              <div className="space-y-2 mt-2">
                 {attendees.map(a=>(
                   <div key={a.email} className="flex items-center gap-2 p-2 rounded-xl" style={{ background:'var(--color-bg)' }}>
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background:'var(--color-primary)' }}>{a.email[0].toUpperCase()}</div>
-                    <span className="flex-1 text-xs truncate" style={{ color:'var(--color-text)' }}>{a.email}</span>
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background:'var(--color-primary)' }}>{(a.name||a.email)[0].toUpperCase()}</div>
+                    <span className="flex-1 text-xs truncate" style={{ color:'var(--color-text)' }}>{a.name ? `${a.name} (${a.email})` : a.email}</span>
                     <select value={a.status} onChange={e=>toggleStatus(a.email,e.target.value)} className="text-xs border rounded-lg px-1 py-0.5 focus:outline-none" style={{ background:'var(--color-bg)', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.25)' }}>
                       <option value="pending">Pending</option><option value="accepted">Accepted</option><option value="declined">Declined</option><option value="maybe">Maybe</option>
                     </select>
@@ -903,6 +953,69 @@ function BookingPage({ bookingPage, events, theme, update }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── CONTACT ATTENDEE INPUT ───────────────────────────────────────────────────
+function ContactAttendeeInput({ contacts, attendees, onAdd, inp, is, theme }) {
+  const [val, setVal]     = useState('');
+  const [open, setOpen]   = useState(false);
+
+  const alreadyAdded = attendees.map(a=>a.email);
+  const suggestions  = contacts.filter(c =>
+    c.email &&
+    !alreadyAdded.includes(c.email) &&
+    (c.name.toLowerCase().includes(val.toLowerCase()) || c.email.toLowerCase().includes(val.toLowerCase()))
+  ).slice(0, 6);
+
+  const add = (email, name) => {
+    if (!email.trim()) return;
+    onAdd({ email: email.trim(), status: 'pending', name: name || '' });
+    setVal(''); setOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <div className="flex gap-2">
+        <input className={`flex-1 ${inp}`} style={is}
+          placeholder="Search contacts or type email…"
+          value={val}
+          onChange={e => { setVal(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={e => { if (e.key==='Enter') { e.preventDefault(); if (suggestions.length>0) add(suggestions[0].email, suggestions[0].name); else if (val.includes('@')) add(val, ''); } }}
+        />
+        <button onMouseDown={e=>e.preventDefault()} onClick={() => { if (suggestions.length>0) add(suggestions[0].email,suggestions[0].name); else if (val.includes('@')) add(val,''); }}
+          className="px-3 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-80 transition"
+          style={{ background:'var(--color-primary)' }}>Add</button>
+      </div>
+      {open && val.length > 0 && (
+        <div className="absolute z-20 w-full mt-1 rounded-xl shadow-xl border overflow-hidden" style={{ background:'var(--color-card)', borderColor:'rgba(128,128,128,0.2)', maxHeight:200, overflowY:'auto' }}>
+          {suggestions.map(c => (
+            <button key={c.id} onMouseDown={e=>e.preventDefault()} onClick={() => add(c.email, c.name)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-black/5 transition border-b last:border-0"
+              style={{ borderColor:'rgba(128,128,128,0.08)' }}>
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                style={{ background:'var(--color-primary)' }}>{c.name[0].toUpperCase()}</div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color:'var(--color-text)' }}>{c.name}</p>
+                <p className="text-xs truncate" style={{ color:'var(--color-text-light)' }}>{c.email}</p>
+              </div>
+            </button>
+          ))}
+          {suggestions.length===0 && val.includes('@') && (
+            <button onMouseDown={e=>e.preventDefault()} onClick={() => add(val,'')}
+              className="w-full px-4 py-2.5 text-left text-sm hover:bg-black/5 transition"
+              style={{ color:'var(--color-text)' }}>
+              Add "{val}" as attendee
+            </button>
+          )}
+          {suggestions.length===0 && !val.includes('@') && (
+            <div className="px-4 py-2.5 text-xs" style={{ color:'var(--color-text-light)' }}>No contacts found. Enter a full email to add.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
