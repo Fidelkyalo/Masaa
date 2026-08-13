@@ -314,7 +314,7 @@ export default function ReportsPage({ events, tasks, user, theme }) {
     { id: 'conflicts',   label: 'Conflicts'   },
     { id: 'time',        label: 'Time Dist.'  },
     { id: 'personal',    label: 'Personal'    },
-    { id: 'ask',         label: '✨ Ask AI'   },
+    { id: 'ask',         label: 'Ask MASAA' },
   ];
 
   return (
@@ -324,7 +324,7 @@ export default function ReportsPage({ events, tasks, user, theme }) {
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center"><Brain size={24} /></div>
           <div>
-            <h1 className="text-2xl font-bold">MASAA AI Reports</h1>
+            <h1 className="text-2xl font-bold">MASAA Reports</h1>
             <p className="text-white/70 text-sm">What happened · Why · What it means · What to do</p>
           </div>
         </div>

@@ -184,7 +184,7 @@ export default function MASAAApp() {
     { id:'tasks',      label:'Tasks',      icon:ListTodo  },
     { id:'contacts',   label:'Contacts',   icon:Users     },
     { id:'analytics',  label:'Analytics',  icon:BarChart2 },
-    { id:'reports',    label:'AI Reports', icon:Brain     },
+    { id:'reports',    label:'Reports',    icon:Brain     },
     { id:'settings',   label:'Settings',   icon:Settings  },
   ];
 
@@ -286,10 +286,10 @@ function NLInput({ onCreate }) {
 
 // ─── SIDEBAR ─────────────────────────────────────────────────────────────────
 function Sidebar({ nav, page, setPage, open, setOpen, theme, onLogout }) {
-  const items = nav.map(item => {
+  const NavItems = ({ closeMobile }) => nav.map(item => {
     const Icon = item.icon; const active = page===item.id;
     return (
-      <button key={item.id} onClick={() => { setPage(item.id); setOpen(false); }}
+      <button key={item.id} onClick={() => { setPage(item.id); if (closeMobile) setOpen(false); }}
         style={active?{background:'rgba(255,255,255,0.2)',fontWeight:700}:{}}
         className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition hover:bg-white/10 text-white text-left">
         <Icon size={20}/><span>{item.label}</span>
@@ -309,22 +309,24 @@ function Sidebar({ nav, page, setPage, open, setOpen, theme, onLogout }) {
   const style = { background:theme.secondary };
   return (
     <>
+      {/* Desktop — never closes on nav click */}
       <div style={style} className={`hidden md:flex flex-col flex-shrink-0 transition-all duration-300 ${open?'w-64':'w-0 overflow-hidden'}`}>
         <Logo/>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">{items}</nav>
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto"><NavItems closeMobile={false}/></nav>
         <div className="p-4 border-t border-white/20">
           <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-2 hover:bg-white/10 rounded-lg transition text-white">
             <LogOut size={20}/><span>Sign Out</span>
           </button>
         </div>
       </div>
+      {/* Mobile overlay */}
       {open && <div className="fixed md:hidden inset-0 bg-black/50 z-40" onClick={() => setOpen(false)}/>}
       <div style={style} className={`fixed md:hidden top-0 left-0 h-screen w-64 z-50 flex flex-col transition-transform duration-300 ${open?'translate-x-0':'-translate-x-full'}`}>
         <div className="p-6 border-b border-white/20 flex justify-between items-center">
           <div className="flex items-center gap-2"><Calendar size={22} className="text-white"/><h1 className="text-xl font-bold text-white">MASAA</h1></div>
           <button onClick={() => setOpen(false)}><X size={24} className="text-white"/></button>
         </div>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">{items}</nav>
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto"><NavItems closeMobile={true}/></nav>
         <div className="p-4 border-t border-white/20">
           <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-2 hover:bg-white/10 rounded-lg transition text-white">
             <LogOut size={20}/><span>Sign Out</span>
