@@ -200,6 +200,7 @@ export default function MASAAApp() {
         <header style={{ background:'var(--color-card)', borderBottom:'1px solid rgba(128,128,128,0.2)' }} className="sticky top-0 z-30 px-4 md:px-6 py-3 flex justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebar(!sidebar)} className="p-2 rounded-lg hover:bg-black/10 transition"><Menu size={22} style={{ color:'var(--color-text)' }}/></button>
+            <img src="/logo.png" alt="MASAA" className="w-7 h-7 rounded-lg object-contain hidden sm:block" style={{ background:'var(--color-primary)', padding:'2px' }} />
             <span className="font-bold text-lg hidden sm:block" style={{ color:'var(--color-primary)' }}>MASAA</span>
           </div>
           {page==='calendar' && (
@@ -245,7 +246,7 @@ export default function MASAAApp() {
             onDelete={id => upd({ tasks:data.tasks.filter(t=>t.id!==id) })}
             onUpdateTask={t => upd({ tasks:data.tasks.map(x=>x.id===t.id?t:x) })} />}
           {page==='contacts'  && <ContactsPage contacts={data.contacts||[]} onAdd={c=>upd({contacts:[...(data.contacts||[]),c]})} onDelete={id=>upd({contacts:(data.contacts||[]).filter(c=>c.id!==id)})} />}
-          {page==='sharing'   && <SharingPage events={data.events} calendars={data.calendars} sharedCalendars={data.sharedCalendars||[]} theme={theme} onShareCalendar={sc => upd({ sharedCalendars:[...(data.sharedCalendars||[]),sc] })} onRemoveShare={id => upd({ sharedCalendars:(data.sharedCalendars||[]).filter(s=>s.id!==id) })} />}
+          {page==='sharing'   && <SharingPage events={data.events} calendars={data.calendars} sharedCalendars={data.sharedCalendars||[]} theme={theme} onShareCalendar={sc => upd({ sharedCalendars:[...(data.sharedCalendars||[]),sc] })} onRemoveShare={id => upd({ sharedCalendars:(data.sharedCalendars||[]).filter(s=>s.id!==id) })} onUpdateShare={(id,perm) => upd({ sharedCalendars:(data.sharedCalendars||[]).map(s=>s.id===id?{...s,permission:perm}:s) })} />}
           {page==='analytics' && <AnalyticsPage events={data.events} tasks={data.tasks} />}
           {page==='reports'   && <ReportsPage events={data.events} tasks={data.tasks} user={session} theme={theme} />}
           {page==='settings'  && <SettingsPage user={session} theme={theme} updateUser={u => { setSession(u); localStorage.setItem('masaa_session',JSON.stringify(u)); upd({ user:u }); }} />}
@@ -301,8 +302,11 @@ function Sidebar({ nav, page, setPage, open, setOpen, theme, onLogout }) {
   const Logo = () => (
     <div className="p-5 border-b border-white/20">
       <div className="flex items-center gap-3">
-        <img src="/logo.png" alt="MASAA" className="w-10 h-10 rounded-xl object-contain bg-white p-0.5" />
-        <div><h1 className="text-xl font-bold text-white">MASAA</h1><p className="text-xs text-white/70">IT'S ABOUT TIME</p></div>
+        <img src="/logo.png" alt="MASAA" className="w-10 h-10 rounded-xl object-contain bg-white p-0.5 flex-shrink-0" />
+        <div>
+          <h1 className="text-lg font-bold text-white leading-tight">MASAA</h1>
+          <p className="text-xs text-white/70 leading-tight">It's About Time!</p>
+        </div>
       </div>
     </div>
   );
@@ -324,8 +328,11 @@ function Sidebar({ nav, page, setPage, open, setOpen, theme, onLogout }) {
       <div style={style} className={`fixed md:hidden top-0 left-0 h-screen w-64 z-50 flex flex-col transition-transform duration-300 ${open?'translate-x-0':'-translate-x-full'}`}>
         <div className="p-5 border-b border-white/20 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="MASAA" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5" />
-            <h1 className="text-xl font-bold text-white">MASAA</h1>
+            <img src="/logo.png" alt="MASAA" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 flex-shrink-0" />
+            <div>
+              <h1 className="text-lg font-bold text-white leading-tight">MASAA</h1>
+              <p className="text-xs text-white/70 leading-tight">It's About Time!</p>
+            </div>
           </div>
           <button onClick={() => setOpen(false)}><X size={24} className="text-white"/></button>
         </div>
@@ -908,10 +915,11 @@ const PERMISSIONS = [
   { value:'manage', label:'Full manage',     desc:'Full control — add, edit, delete, and manage settings.' },
 ];
 
-function SharingPage({ events, calendars, sharedCalendars, theme, onShareCalendar, onRemoveShare }) {
-  const [shareEmail,setShareEmail]         = useState('');
-  const [shareCal,setShareCal]             = useState(calendars[0]?.id||'');
+function SharingPage({ events, calendars, sharedCalendars, theme, onShareCalendar, onRemoveShare, onUpdateShare }) {
+  const [shareEmail,setShareEmail]           = useState('');
+  const [shareCal,setShareCal]               = useState(calendars[0]?.id||'');
   const [sharePermission,setSharePermission] = useState('view');
+  const [editingId, setEditingId]            = useState(null); // which share is being edited
 
   const inp="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2";
   const is={ background:'var(--color-bg)', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.25)' };
@@ -1000,22 +1008,46 @@ function SharingPage({ events, calendars, sharedCalendars, theme, onShareCalenda
             {sharedCalendars.map(sc => {
               const cal  = calendars.find(c=>c.id===sc.calendarId);
               const perm = PERMISSIONS.find(p=>p.value===sc.permission);
+              const isEditing = editingId === sc.id;
               return (
-                <div key={sc.id} className="flex items-center gap-3 p-4 rounded-xl" style={{ background:'var(--color-bg)' }}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background:`${cal?.color||'var(--color-primary)'}20` }}>
-                    <div className="w-3 h-3 rounded-full" style={{ background:cal?.color||'var(--color-primary)' }}/>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>{cal?.name||sc.calendarId}</p>
-                    <p className="text-xs mt-0.5" style={{ color:'var(--color-text-light)' }}>
-                      Shared with <span className="font-semibold">{sc.email}</span> · {sc.sharedAt}
-                    </p>
-                  </div>
-                  <span className="text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0" style={{ background:`var(--color-primary)18`, color:'var(--color-primary)' }}>{perm?.label||sc.permission}</span>
-                  {onRemoveShare && (
-                    <button onClick={()=>onRemoveShare(sc.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition flex-shrink-0">
-                      <X size={14}/>
+                <div key={sc.id} className="rounded-xl overflow-hidden" style={{ background:'var(--color-bg)', border:'1.5px solid rgba(128,128,128,0.15)' }}>
+                  <div className="flex items-center gap-3 p-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background:`${cal?.color||'var(--color-primary)'}20` }}>
+                      <div className="w-3 h-3 rounded-full" style={{ background:cal?.color||'var(--color-primary)' }}/>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>{cal?.name||sc.calendarId}</p>
+                      <p className="text-xs mt-0.5" style={{ color:'var(--color-text-light)' }}>
+                        Shared with <span className="font-semibold">{sc.email}</span> · {sc.sharedAt}
+                      </p>
+                    </div>
+                    <span className="text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0" style={{ background:`var(--color-primary)18`, color:'var(--color-primary)' }}>{perm?.label||sc.permission}</span>
+                    <button onClick={()=>setEditingId(isEditing?null:sc.id)}
+                      className="p-1.5 rounded-lg transition flex-shrink-0 font-semibold text-xs px-3 py-1.5"
+                      style={{ background: isEditing?'var(--color-primary)':'rgba(128,128,128,0.12)', color: isEditing?'#fff':'var(--color-text-light)' }}>
+                      {isEditing ? 'Done' : 'Edit'}
                     </button>
+                    {onRemoveShare && (
+                      <button onClick={()=>onRemoveShare(sc.id)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 transition flex-shrink-0">
+                        <X size={14}/>
+                      </button>
+                    )}
+                  </div>
+                  {/* Inline permission editor */}
+                  {isEditing && (
+                    <div className="px-4 pb-4 border-t pt-3" style={{ borderColor:'rgba(128,128,128,0.1)' }}>
+                      <p className="text-xs font-bold mb-2" style={{ color:'var(--color-text-light)' }}>Change permission level:</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {PERMISSIONS.map(p => (
+                          <button key={p.value} onClick={()=>{ onUpdateShare(sc.id, p.value); setEditingId(null); }}
+                            className="p-3 rounded-xl border-2 text-left transition hover:shadow-sm"
+                            style={{ borderColor: sc.permission===p.value?'var(--color-primary)':'rgba(128,128,128,0.18)', background: sc.permission===p.value?`var(--color-primary)12`:'var(--color-card)' }}>
+                            <p className="text-xs font-bold" style={{ color:'var(--color-text)' }}>{p.label}</p>
+                            <p className="text-xs mt-0.5 opacity-70" style={{ color:'var(--color-text-light)' }}>{p.desc}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               );
