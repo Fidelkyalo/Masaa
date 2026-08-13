@@ -573,6 +573,28 @@ function EventModal({ event, calendars, theme, onClose, onSave }) {
   const [meetingType,setMeetingType]=useState(event?.meetingType||'physical');
   const [location,setLocation]=useState(event?.location||'');
   const [onlineLink,setOnlineLink]=useState(event?.onlineLink||'');
+  const [detectingLoc,setDetectingLoc]=useState(false);
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) { setLocation('Geolocation not supported'); return; }
+    setDetectingLoc(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude: lat, longitude: lon } = pos.coords;
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+          const data = await res.json();
+          const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || '';
+          const country = data.address?.country || '';
+          setLocation([city, country].filter(Boolean).join(', ') || `${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+        } catch {
+          setLocation(`Location detected`);
+        }
+        setDetectingLoc(false);
+      },
+      () => { setLocation(''); setDetectingLoc(false); }
+    );
+  };
 
   const addAttendee=()=>{ if(!attendeeInput.trim()) return; setAttendees(a=>[...a,{email:attendeeInput.trim(),status:'pending'}]); setAttendeeInput(''); };
   const removeAttendee=(email)=>setAttendees(a=>a.filter(x=>x.email!==email));
@@ -653,12 +675,22 @@ function EventModal({ event, calendars, theme, onClose, onSave }) {
             </div>
             {meetingType==='physical' && (
               <div className="space-y-2">
-                <input className={inp} style={is} placeholder="📍 Location / Place name (e.g. Westgate Mall, Nairobi)" value={location} onChange={e=>setLocation(e.target.value)}/>
-                <a href={location ? `https://www.google.com/maps/search/${encodeURIComponent(location)}` : 'https://www.google.com/maps'} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-semibold hover:underline transition"
-                  style={{ color:'var(--color-primary)' }}>
-                  🗺 Open in Google Maps
-                </a>
+                <div className="flex gap-2">
+                  <input className={`flex-1 ${inp}`} style={is} placeholder="📍 Location / Place name" value={location} onChange={e=>setLocation(e.target.value)}/>
+                  <button onClick={detectLocation} disabled={detectingLoc} title="Detect my location"
+                    className="px-3 py-2 rounded-xl text-white text-sm font-semibold hover:opacity-80 transition flex-shrink-0"
+                    style={{ background:'var(--color-primary)', opacity: detectingLoc ? 0.6 : 1 }}>
+                    {detectingLoc ? '⏳' : '📍'}
+                  </button>
+                </div>
+                {detectingLoc && <p className="text-xs" style={{ color:'var(--color-text-light)' }}>Detecting your location…</p>}
+                {location && (
+                  <a href={`https://www.google.com/maps/search/${encodeURIComponent(location)}`} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
+                    style={{ color:'var(--color-primary)' }}>
+                    🗺 Open in Google Maps
+                  </a>
+                )}
               </div>
             )}
             {meetingType==='online' && (
@@ -961,6 +993,40 @@ function SettingsPage({ user, theme, updateUser }) {
   const inp="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2"; const is={ background:'var(--color-bg)', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.25)' };
   const filtered=THEMES.filter(t=>t.name.toLowerCase().includes(search.toLowerCase()));
   const tabs=[{id:'profile',label:'Profile'},{id:'themes',label:'Themes'}];
+
+  const TIMEZONES = [
+    { value:'UTC-12', label:'UTC-12 — Baker Island' },
+    { value:'UTC-11', label:'UTC-11 — Pago Pago, American Samoa' },
+    { value:'UTC-10', label:'UTC-10 — Honolulu, Hawaii' },
+    { value:'UTC-9',  label:'UTC-9  — Anchorage, Alaska' },
+    { value:'UTC-8',  label:'UTC-8  — Los Angeles, Vancouver' },
+    { value:'UTC-7',  label:'UTC-7  — Denver, Phoenix' },
+    { value:'UTC-6',  label:'UTC-6  — Chicago, Mexico City' },
+    { value:'UTC-5',  label:'UTC-5  — New York, Toronto, Bogotá' },
+    { value:'UTC-4',  label:'UTC-4  — Santiago, Caracas, Halifax' },
+    { value:'UTC-3',  label:'UTC-3  — São Paulo, Buenos Aires, Montevideo' },
+    { value:'UTC-2',  label:'UTC-2  — South Georgia Island' },
+    { value:'UTC-1',  label:'UTC-1  — Azores, Cape Verde' },
+    { value:'UTC+0',  label:'UTC+0  — London, Dublin, Lisbon, Accra, Dakar' },
+    { value:'UTC+1',  label:'UTC+1  — Lagos, Kinshasa, Paris, Berlin, Rome, Madrid' },
+    { value:'UTC+2',  label:'UTC+2  — Cairo, Johannesburg, Athens, Harare, Kigali' },
+    { value:'UTC+3',  label:'UTC+3  — Nairobi, Dar es Salaam, Addis Ababa, Riyadh, Moscow' },
+    { value:'UTC+4',  label:'UTC+4  — Dubai, Abu Dhabi, Baku, Tbilisi' },
+    { value:'UTC+4:30', label:'UTC+4:30 — Kabul, Afghanistan' },
+    { value:'UTC+5',  label:'UTC+5  — Karachi, Tashkent, Islamabad' },
+    { value:'UTC+5:30', label:'UTC+5:30 — New Delhi, Mumbai, Colombo' },
+    { value:'UTC+5:45', label:'UTC+5:45 — Kathmandu, Nepal' },
+    { value:'UTC+6',  label:'UTC+6  — Dhaka, Almaty' },
+    { value:'UTC+6:30', label:'UTC+6:30 — Yangon, Myanmar' },
+    { value:'UTC+7',  label:'UTC+7  — Bangkok, Jakarta, Hanoi' },
+    { value:'UTC+8',  label:'UTC+8  — Beijing, Singapore, Kuala Lumpur, Perth, Manila' },
+    { value:'UTC+9',  label:'UTC+9  — Tokyo, Seoul, Pyongyang' },
+    { value:'UTC+9:30', label:'UTC+9:30 — Adelaide, Darwin' },
+    { value:'UTC+10', label:'UTC+10 — Sydney, Melbourne, Brisbane, Vladivostok' },
+    { value:'UTC+11', label:'UTC+11 — Noumea, Solomon Islands' },
+    { value:'UTC+12', label:'UTC+12 — Auckland, Fiji, Suva' },
+  ];
+
   return (
     <div className="max-w-3xl space-y-6">
       <div className="flex gap-2 p-1 rounded-2xl w-fit" style={{ background:'var(--color-card)' }}>
@@ -973,19 +1039,24 @@ function SettingsPage({ user, theme, updateUser }) {
             <div key={f.key}><label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>{f.label}</label>
               <input type={f.type} className={inp} style={is} value={user[f.key]||''} onChange={e=>updateUser({...user,[f.key]:e.target.value})}/></div>
           ))}
-          <div><label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Timezone</label>
-            <select className={inp} style={is} value={user.timezone||'UTC+3'} onChange={e=>updateUser({...user,timezone:e.target.value})}>
-              {['UTC-5','UTC-4','UTC-3','UTC+0','UTC+1','UTC+2','UTC+3','UTC+4','UTC+5','UTC+5:30','UTC+8','UTC+9','UTC+10'].map(z=><option key={z}>{z}</option>)}</select></div>
-          <button className="w-full py-2.5 rounded-xl text-white font-semibold text-sm hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>Save Changes</button>
-          <div className="pt-3 border-t" style={{ borderColor:'rgba(128,128,128,0.15)' }}>
-            <button className="text-red-500 hover:text-red-600 text-sm font-semibold">Delete Account</button>
+          {/* Country */}
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Country</label>
+            <input className={inp} style={is} placeholder="e.g. Kenya" value={user.country||''} onChange={e=>updateUser({...user,country:e.target.value})}/>
           </div>
+          {/* Timezone with city names */}
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Timezone</label>
+            <select className={inp} style={is} value={user.timezone||'UTC+3'} onChange={e=>updateUser({...user,timezone:e.target.value})}>
+              {TIMEZONES.map(tz=><option key={tz.value} value={tz.value}>{tz.label}</option>)}
+            </select>
+          </div>
+          <button className="w-full py-2.5 rounded-xl text-white font-semibold text-sm hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>Save Changes</button>
         </div>
       )}
       {tab==='themes'&&(
         <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
-          <h2 className="text-xl font-bold mb-1" style={{ color:'var(--color-text)' }}>Choose Your Theme</h2>
-          <p className="text-sm mb-4" style={{ color:'var(--color-text-light)' }}>50 combinations — light and dark.</p>
+          <h2 className="text-xl font-bold mb-4" style={{ color:'var(--color-text)' }}>Choose Your Theme</h2>
           <input className={`${inp} mb-4`} style={is} placeholder="Search themes…" value={search} onChange={e=>setSearch(e.target.value)}/>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[55vh] overflow-y-auto pr-1">
             {filtered.map(t=>{ const active=user.themeId===t.id; return (
