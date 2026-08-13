@@ -509,8 +509,11 @@ function DayGrid({ events, currentDate, theme, onEdit }) {
         return <div key={h} className="flex border-b min-h-14" style={{ borderColor:'rgba(128,128,128,0.12)' }}>
           <div className="w-16 flex-shrink-0 p-2 text-xs text-right pr-3 border-r" style={{ borderColor:'rgba(128,128,128,0.12)', color:'var(--color-text-light)' }}>{String(h).padStart(2,'0')}:00</div>
           <div className="flex-1 p-1 space-y-1">
-            {evs.map(ev=><div key={ev.id} onClick={()=>onEdit(ev)} className="px-3 py-2 rounded-xl text-sm text-white cursor-pointer hover:opacity-80 transition flex items-center gap-2" style={{ background:ev.color||'var(--color-primary)' }}>
-              <span className="font-semibold">{ev.title}</span><span className="opacity-80 text-xs">{ev.startTime}–{ev.endTime}</span>
+            {evs.map(ev=><div key={ev.id} onClick={()=>onEdit(ev)} className="px-3 py-2 rounded-xl text-sm text-white cursor-pointer hover:opacity-80 transition flex flex-wrap items-center gap-2" style={{ background:ev.color||'var(--color-primary)' }}>
+              <span className="font-semibold">{ev.title}</span>
+              <span className="opacity-80 text-xs">{ev.startTime}–{ev.endTime}</span>
+              {ev.meetingType==='online'&&ev.onlineLink&&<a href={ev.onlineLink} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} className="text-xs bg-white/25 px-2 py-0.5 rounded-full hover:bg-white/40">🔗 Join</a>}
+              {ev.meetingType==='physical'&&ev.location&&<span className="text-xs opacity-80">📍 {ev.location}</span>}
             </div>)}
           </div>
         </div>;
@@ -567,6 +570,9 @@ function EventModal({ event, calendars, theme, onClose, onSave }) {
   const [attendees,setAttendees]=useState(event?.attendees||[]);
   const [reminders,setReminders]=useState(event?.reminders||[]);
   const [recurring,setRecurring]=useState(event?.recurring||'none');
+  const [meetingType,setMeetingType]=useState(event?.meetingType||'physical');
+  const [location,setLocation]=useState(event?.location||'');
+  const [onlineLink,setOnlineLink]=useState(event?.onlineLink||'');
 
   const addAttendee=()=>{ if(!attendeeInput.trim()) return; setAttendees(a=>[...a,{email:attendeeInput.trim(),status:'pending'}]); setAttendeeInput(''); };
   const removeAttendee=(email)=>setAttendees(a=>a.filter(x=>x.email!==email));
@@ -631,11 +637,48 @@ function EventModal({ event, calendars, theme, onClose, onSave }) {
               </div>
             )}
           </div>
+          {/* Meeting type */}
+          <div>
+            <label className="text-xs font-semibold mb-2 block" style={{ color:'var(--color-text-light)' }}>Meeting Type</label>
+            <div className="flex gap-2 mb-3">
+              {[{v:'physical',label:'📍 Physical',icon:'📍'},{v:'online',label:'💻 Online',icon:'💻'}].map(opt=>(
+                <button key={opt.v} onClick={()=>setMeetingType(opt.v)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition border-2"
+                  style={{ borderColor: meetingType===opt.v ? 'var(--color-primary)' : 'rgba(128,128,128,0.2)',
+                           background:  meetingType===opt.v ? 'var(--color-primary)' : 'var(--color-bg)',
+                           color:       meetingType===opt.v ? '#fff' : 'var(--color-text)' }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {meetingType==='physical' && (
+              <div className="space-y-2">
+                <input className={inp} style={is} placeholder="📍 Location / Place name (e.g. Westgate Mall, Nairobi)" value={location} onChange={e=>setLocation(e.target.value)}/>
+                <a href={location ? `https://www.google.com/maps/search/${encodeURIComponent(location)}` : 'https://www.google.com/maps'} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold hover:underline transition"
+                  style={{ color:'var(--color-primary)' }}>
+                  🗺 Open in Google Maps
+                </a>
+              </div>
+            )}
+            {meetingType==='online' && (
+              <div className="space-y-2">
+                <input className={inp} style={is} placeholder="💻 Meeting link (Zoom, Google Meet, Teams…)" value={onlineLink} onChange={e=>setOnlineLink(e.target.value)}/>
+                {onlineLink && (
+                  <a href={onlineLink} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
+                    style={{ color:'var(--color-primary)' }}>
+                    🔗 Open meeting link
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
           <textarea className={`${inp} resize-none`} style={is} rows={3} placeholder="Description…" value={desc} onChange={e=>setDesc(e.target.value)}/>
         </div>
         <div className="p-5 pt-0 flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl font-semibold text-sm hover:opacity-80 transition" style={{ background:'rgba(128,128,128,0.15)', color:'var(--color-text)' }}>Cancel</button>
-          <button onClick={()=>{ if(!title.trim()) return; onSave({...event,title,date,startTime,endTime,calendarId:calId,color,description:desc,attendees,reminders,recurring}); }} className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>Save Event</button>
+          <button onClick={()=>{ if(!title.trim()) return; onSave({...event,title,date,startTime,endTime,calendarId:calId,color,description:desc,attendees,reminders,recurring,meetingType,location,onlineLink}); }} className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>Save Event</button>
         </div>
       </div>
     </div>
@@ -733,44 +776,98 @@ function BookingPage({ bookingPage, events, theme, update }) {
   const link=`${window.location.origin}?booking=${bookingPage.id}`;
   const copy=()=>{ navigator.clipboard.writeText(link); setCopied(true); setTimeout(()=>setCopied(false),2000); };
   const dayNames=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-  const slots=[]; for(let i=0;i<7;i++){ const d=new Date(Date.now()+i*86400000); const day=dayNames[d.getDay()],cfg=bookingPage.availability[day]; const ds=d.toISOString().split('T')[0];
-    if(cfg.active){ const [sh]=cfg.start.split(':').map(Number),[eh]=cfg.end.split(':').map(Number);
-      for(let h=sh;h<eh;h++) for(let m=0;m<60;m+=bookingPage.meetingDuration){ const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; const busy=events.some(e=>e.date===ds&&e.startTime<=t&&e.endTime>t); if(!busy) slots.push({date:ds,time:t}); }}}
-  const inp="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2"; const is={ background:'var(--color-bg)', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.25)' };
+  const slots=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(Date.now()+i*86400000);
+    const day=dayNames[d.getDay()], cfg=bookingPage.availability[day];
+    const ds=d.toISOString().split('T')[0];
+    if(cfg.active){
+      const [sh]=cfg.start.split(':').map(Number), [eh]=cfg.end.split(':').map(Number);
+      for(let h=sh;h<eh;h++) for(let m=0;m<60;m+=bookingPage.meetingDuration){
+        const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        const busy=events.some(e=>e.date===ds&&e.startTime<=t&&e.endTime>t);
+        if(!busy) slots.push({date:ds,time:t});
+      }
+    }
+  }
+  const inp="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2";
+  const is={ background:'var(--color-bg)', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.25)' };
+
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
+    <div className="space-y-5 max-w-3xl">
+      {/* Settings */}
+      <div className="rounded-2xl shadow p-5" style={{ background:'var(--color-card)' }}>
         <h2 className="text-xl font-bold mb-4" style={{ color:'var(--color-text)' }}>Booking Page Settings</h2>
-        <div className="space-y-4">
+        <div className="space-y-3">
           <input className={inp} style={is} placeholder="Page Title" value={bookingPage.title} onChange={e=>update({...bookingPage,title:e.target.value})}/>
           <textarea className={`${inp} resize-none`} style={is} rows={2} placeholder="Description" value={bookingPage.description} onChange={e=>update({...bookingPage,description:e.target.value})}/>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Duration (min)</label><input type="number" className={inp} style={is} value={bookingPage.meetingDuration} onChange={e=>update({...bookingPage,meetingDuration:+e.target.value})}/></div>
-            <div><label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Buffer (min)</label><input type="number" className={inp} style={is} value={bookingPage.bufferTime} onChange={e=>update({...bookingPage,bufferTime:+e.target.value})}/></div>
+          {/* Duration + buffer — stack on mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Duration (min)</label>
+              <input type="number" className={inp} style={is} value={bookingPage.meetingDuration} onChange={e=>update({...bookingPage,meetingDuration:+e.target.value})}/>
+            </div>
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Buffer time (min)</label>
+              <input type="number" className={inp} style={is} value={bookingPage.bufferTime} onChange={e=>update({...bookingPage,bufferTime:+e.target.value})}/>
+            </div>
           </div>
         </div>
       </div>
-      <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
+
+      {/* Weekly availability — responsive row layout */}
+      <div className="rounded-2xl shadow p-5" style={{ background:'var(--color-card)' }}>
         <h2 className="text-xl font-bold mb-4" style={{ color:'var(--color-text)' }}>Weekly Availability</h2>
         <div className="space-y-2">
           {Object.entries(bookingPage.availability).map(([day,cfg])=>(
-            <div key={day} className="flex items-center gap-4 p-3 rounded-xl" style={{ background:'var(--color-bg)' }}>
-              <span className="w-24 capitalize text-sm font-semibold" style={{ color:'var(--color-text)' }}>{day}</span>
-              <input type="checkbox" checked={cfg.active} onChange={e=>{const u={...bookingPage};u.availability[day].active=e.target.checked;update(u);}} className="w-4 h-4 cursor-pointer"/>
-              {cfg.active&&<><input type="time" value={cfg.start} onChange={e=>{const u={...bookingPage};u.availability[day].start=e.target.value;update(u);}} className="px-2 py-1 rounded-lg border text-sm focus:outline-none" style={is}/><span style={{ color:'var(--color-text-light)' }}>to</span><input type="time" value={cfg.end} onChange={e=>{const u={...bookingPage};u.availability[day].end=e.target.value;update(u);}} className="px-2 py-1 rounded-lg border text-sm focus:outline-none" style={is}/></>}
+            <div key={day} className="rounded-xl p-3" style={{ background:'var(--color-bg)' }}>
+              {/* Top row: day name + toggle */}
+              <div className="flex items-center gap-3">
+                <span className="w-24 capitalize text-sm font-semibold flex-shrink-0" style={{ color:'var(--color-text)' }}>{day}</span>
+                <input type="checkbox" checked={cfg.active} onChange={e=>{const u={...bookingPage};u.availability[day].active=e.target.checked;update(u);}} className="w-4 h-4 cursor-pointer flex-shrink-0"/>
+                <span className="text-xs" style={{ color:'var(--color-text-light)' }}>{cfg.active ? 'Available' : 'Unavailable'}</span>
+              </div>
+              {/* Time pickers on their own row when active */}
+              {cfg.active && (
+                <div className="flex flex-wrap items-center gap-2 mt-2 ml-0 sm:ml-28">
+                  <input type="time" value={cfg.start} onChange={e=>{const u={...bookingPage};u.availability[day].start=e.target.value;update(u);}}
+                    className="px-2 py-1.5 rounded-lg border text-sm focus:outline-none flex-1 min-w-0" style={is}/>
+                  <span className="text-xs font-semibold flex-shrink-0" style={{ color:'var(--color-text-light)' }}>to</span>
+                  <input type="time" value={cfg.end} onChange={e=>{const u={...bookingPage};u.availability[day].end=e.target.value;update(u);}}
+                    className="px-2 py-1.5 rounded-lg border text-sm focus:outline-none flex-1 min-w-0" style={is}/>
+                </div>
+              )}
             </div>
           ))}
         </div>
       </div>
-      <div className="rounded-2xl p-6 text-white" style={{ background:`linear-gradient(135deg,${theme.primary},${theme.secondary})` }}>
+
+      {/* Booking link */}
+      <div className="rounded-2xl p-5 text-white" style={{ background:`linear-gradient(135deg,${theme.primary},${theme.secondary})` }}>
         <h2 className="text-lg font-bold mb-3">Your Booking Link</h2>
-        <div className="flex gap-2"><input readOnly value={link} className="flex-1 px-3 py-2 rounded-xl text-sm bg-white/20 text-white border border-white/30 focus:outline-none"/><button onClick={copy} className="px-5 py-2 bg-white font-semibold rounded-xl text-sm hover:opacity-80 transition" style={{ color:'var(--color-primary)' }}>{copied?'Copied!':'Copy'}</button></div>
-      </div>
-      <div className="rounded-2xl shadow p-6" style={{ background:'var(--color-card)' }}>
-        <h2 className="text-xl font-bold mb-4" style={{ color:'var(--color-text)' }}>Available Slots (Next 7 Days)</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {slots.slice(0,16).map((s,i)=><div key={i} className="p-3 rounded-xl text-center border" style={{ borderColor:'rgba(128,128,128,0.15)', background:'var(--color-bg)' }}><p className="font-semibold text-sm" style={{ color:'var(--color-text)' }}>{s.time}</p><p className="text-xs" style={{ color:'var(--color-text-light)' }}>{new Date(s.date+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</p></div>)}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input readOnly value={link} className="flex-1 px-3 py-2 rounded-xl text-sm bg-white/20 text-white border border-white/30 focus:outline-none min-w-0"/>
+          <button onClick={copy} className="px-5 py-2 bg-white font-semibold rounded-xl text-sm hover:opacity-80 transition flex-shrink-0" style={{ color:'var(--color-primary)' }}>
+            {copied?'Copied!':'Copy'}
+          </button>
         </div>
+      </div>
+
+      {/* Available slots — 2 cols on mobile, 4 on desktop */}
+      <div className="rounded-2xl shadow p-5" style={{ background:'var(--color-card)' }}>
+        <h2 className="text-xl font-bold mb-4" style={{ color:'var(--color-text)' }}>Available Slots (Next 7 Days)</h2>
+        {slots.length === 0 ? (
+          <p className="text-sm text-center py-4" style={{ color:'var(--color-text-light)' }}>No available slots. Check your availability settings above.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {slots.slice(0,16).map((s,i)=>(
+              <div key={i} className="p-3 rounded-xl text-center border" style={{ borderColor:'rgba(128,128,128,0.15)', background:'var(--color-bg)' }}>
+                <p className="font-semibold text-sm" style={{ color:'var(--color-text)' }}>{s.time}</p>
+                <p className="text-xs mt-0.5" style={{ color:'var(--color-text-light)' }}>{new Date(s.date+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
