@@ -230,8 +230,10 @@ export default function MASAAApp() {
                 </div>
               )}
             </div>
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm cursor-pointer"
-              style={{ background:`linear-gradient(135deg,${theme.accent},${theme.primary})` }}>
+            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:opacity-80 transition"
+              style={{ background:`linear-gradient(135deg,${theme.accent},${theme.primary})` }}
+              onClick={() => setPage('settings')}
+              title="Profile & Settings">
               {(session.name||'U').charAt(0)}
             </div>
           </div>
@@ -993,39 +995,10 @@ function SettingsPage({ user, theme, updateUser }) {
   const inp="w-full px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2"; const is={ background:'var(--color-bg)', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.25)' };
   const filtered=THEMES.filter(t=>t.name.toLowerCase().includes(search.toLowerCase()));
   const tabs=[{id:'profile',label:'Profile'},{id:'themes',label:'Themes'}];
+  const [tzSearch, setTzSearch] = useState('');
+  const [tzOpen, setTzOpen]     = useState(false);
 
-  const TIMEZONES = [
-    { value:'UTC-12', label:'UTC-12 — Baker Island' },
-    { value:'UTC-11', label:'UTC-11 — Pago Pago, American Samoa' },
-    { value:'UTC-10', label:'UTC-10 — Honolulu, Hawaii' },
-    { value:'UTC-9',  label:'UTC-9  — Anchorage, Alaska' },
-    { value:'UTC-8',  label:'UTC-8  — Los Angeles, Vancouver' },
-    { value:'UTC-7',  label:'UTC-7  — Denver, Phoenix' },
-    { value:'UTC-6',  label:'UTC-6  — Chicago, Mexico City' },
-    { value:'UTC-5',  label:'UTC-5  — New York, Toronto, Bogotá' },
-    { value:'UTC-4',  label:'UTC-4  — Santiago, Caracas, Halifax' },
-    { value:'UTC-3',  label:'UTC-3  — São Paulo, Buenos Aires, Montevideo' },
-    { value:'UTC-2',  label:'UTC-2  — South Georgia Island' },
-    { value:'UTC-1',  label:'UTC-1  — Azores, Cape Verde' },
-    { value:'UTC+0',  label:'UTC+0  — London, Dublin, Lisbon, Accra, Dakar' },
-    { value:'UTC+1',  label:'UTC+1  — Lagos, Kinshasa, Paris, Berlin, Rome, Madrid' },
-    { value:'UTC+2',  label:'UTC+2  — Cairo, Johannesburg, Athens, Harare, Kigali' },
-    { value:'UTC+3',  label:'UTC+3  — Nairobi, Dar es Salaam, Addis Ababa, Riyadh, Moscow' },
-    { value:'UTC+4',  label:'UTC+4  — Dubai, Abu Dhabi, Baku, Tbilisi' },
-    { value:'UTC+4:30', label:'UTC+4:30 — Kabul, Afghanistan' },
-    { value:'UTC+5',  label:'UTC+5  — Karachi, Tashkent, Islamabad' },
-    { value:'UTC+5:30', label:'UTC+5:30 — New Delhi, Mumbai, Colombo' },
-    { value:'UTC+5:45', label:'UTC+5:45 — Kathmandu, Nepal' },
-    { value:'UTC+6',  label:'UTC+6  — Dhaka, Almaty' },
-    { value:'UTC+6:30', label:'UTC+6:30 — Yangon, Myanmar' },
-    { value:'UTC+7',  label:'UTC+7  — Bangkok, Jakarta, Hanoi' },
-    { value:'UTC+8',  label:'UTC+8  — Beijing, Singapore, Kuala Lumpur, Perth, Manila' },
-    { value:'UTC+9',  label:'UTC+9  — Tokyo, Seoul, Pyongyang' },
-    { value:'UTC+9:30', label:'UTC+9:30 — Adelaide, Darwin' },
-    { value:'UTC+10', label:'UTC+10 — Sydney, Melbourne, Brisbane, Vladivostok' },
-    { value:'UTC+11', label:'UTC+11 — Noumea, Solomon Islands' },
-    { value:'UTC+12', label:'UTC+12 — Auckland, Fiji, Suva' },
-  ];
+  // timezone list moved to ALL_TIMEZONES module-level constant below
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -1044,12 +1017,41 @@ function SettingsPage({ user, theme, updateUser }) {
             <label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Country</label>
             <input className={inp} style={is} placeholder="e.g. Kenya" value={user.country||''} onChange={e=>updateUser({...user,country:e.target.value})}/>
           </div>
-          {/* Timezone with city names */}
-          <div>
+          {/* Timezone searchable */}
+          <div className="relative">
             <label className="text-xs font-semibold mb-1 block" style={{ color:'var(--color-text-light)' }}>Timezone</label>
-            <select className={inp} style={is} value={user.timezone||'UTC+3'} onChange={e=>updateUser({...user,timezone:e.target.value})}>
-              {TIMEZONES.map(tz=><option key={tz.value} value={tz.value}>{tz.label}</option>)}
-            </select>
+            <input className={inp} style={is}
+              placeholder="Search city, country or UTC offset…"
+              value={tzSearch || user.timezone || ''}
+              onFocus={() => { setTzOpen(true); setTzSearch(''); }}
+              onChange={e => { setTzSearch(e.target.value); setTzOpen(true); }}
+            />
+            {tzOpen && (
+              <div className="absolute z-50 w-full mt-1 rounded-xl shadow-xl border overflow-hidden" style={{ background:'var(--color-card)', borderColor:'rgba(128,128,128,0.2)', maxHeight:260, overflowY:'auto' }}>
+                {ALL_TIMEZONES.filter(tz => {
+                  const q = (tzSearch||'').toLowerCase();
+                  return !q || tz.label.toLowerCase().includes(q) || tz.value.toLowerCase().includes(q);
+                }).slice(0,40).map(tz => (
+                  <button key={tz.value} onMouseDown={e=>e.preventDefault()} onClick={() => {
+                    updateUser({...user, timezone: tz.value});
+                    setTzSearch(''); setTzOpen(false);
+                  }} className="w-full text-left px-4 py-2.5 text-sm hover:opacity-80 transition border-b last:border-0"
+                    style={{ background: user.timezone===tz.value ? `var(--color-primary)15` : 'transparent', color:'var(--color-text)', borderColor:'rgba(128,128,128,0.08)', fontWeight: user.timezone===tz.value?700:400 }}>
+                    <span className="font-mono text-xs mr-2 font-semibold" style={{ color:'var(--color-primary)' }}>{tz.value}</span>
+                    {tz.cities}
+                  </button>
+                ))}
+                {ALL_TIMEZONES.filter(tz=>{ const q=(tzSearch||'').toLowerCase(); return !q||tz.label.toLowerCase().includes(q)||tz.value.toLowerCase().includes(q); }).length===0 &&
+                  <div className="px-4 py-3 text-sm" style={{ color:'var(--color-text-light)' }}>No results found</div>
+                }
+              </div>
+            )}
+            {tzOpen && <div className="fixed inset-0 z-40" onClick={()=>setTzOpen(false)}/>}
+            {user.timezone && !tzOpen && (
+              <p className="text-xs mt-1" style={{ color:'var(--color-text-light)' }}>
+                {ALL_TIMEZONES.find(t=>t.value===user.timezone)?.cities || user.timezone}
+              </p>
+            )}
           </div>
           <button className="w-full py-2.5 rounded-xl text-white font-semibold text-sm hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>Save Changes</button>
         </div>
@@ -1273,3 +1275,45 @@ function SharingQuickCard({ setPage, sharedCalendars, calendars, theme }) {
     </div>
   );
 }
+
+// ─── COMPREHENSIVE WORLD TIMEZONES ───────────────────────────────────────────
+export const ALL_TIMEZONES = [
+  { value:'UTC-12',   cities:'Baker Island, Howland Island',                                                  label:'UTC-12 Baker Island' },
+  { value:'UTC-11',   cities:'Pago Pago, American Samoa, Niue',                                               label:'UTC-11 Pago Pago American Samoa' },
+  { value:'UTC-10',   cities:'Honolulu, Hilo, Hawaii, Cook Islands, Tahiti',                                  label:'UTC-10 Honolulu Hawaii Tahiti' },
+  { value:'UTC-9:30', cities:'Marquesas Islands, French Polynesia',                                           label:'UTC-9:30 Marquesas' },
+  { value:'UTC-9',    cities:'Anchorage, Juneau, Fairbanks, Alaska',                                          label:'UTC-9 Anchorage Alaska' },
+  { value:'UTC-8',    cities:'Los Angeles, San Francisco, Seattle, Vancouver, Tijuana',                       label:'UTC-8 Los Angeles Vancouver Seattle' },
+  { value:'UTC-7',    cities:'Denver, Phoenix, Calgary, Salt Lake City, El Paso',                             label:'UTC-7 Denver Phoenix Calgary' },
+  { value:'UTC-6',    cities:'Chicago, Mexico City, Guadalajara, Houston, Winnipeg, Guatemala City',          label:'UTC-6 Chicago Mexico City Houston' },
+  { value:'UTC-5',    cities:'New York, Toronto, Miami, Bogotá, Lima, Havana, Panama City',                   label:'UTC-5 New York Toronto Bogota Lima' },
+  { value:'UTC-4',    cities:'Santiago, Caracas, Halifax, La Paz, Manaus, Santo Domingo, Barbados',           label:'UTC-4 Santiago Caracas Halifax' },
+  { value:'UTC-3',    cities:'São Paulo, Rio de Janeiro, Buenos Aires, Montevideo, Brasília, Asunción',       label:'UTC-3 Sao Paulo Buenos Aires Montevideo' },
+  { value:'UTC-2:30', cities:'St. John\'s, Newfoundland',                                                     label:'UTC-2:30 St Johns Newfoundland' },
+  { value:'UTC-2',    cities:'Fernando de Noronha, South Georgia',                                            label:'UTC-2 Fernando de Noronha' },
+  { value:'UTC-1',    cities:'Azores, Cape Verde, Praia',                                                     label:'UTC-1 Azores Cape Verde' },
+  { value:'UTC+0',    cities:'London, Dublin, Lisbon, Accra, Dakar, Reykjavik, Abidjan, Monrovia, Bamako',   label:'UTC+0 London Dublin Lisbon Accra Dakar' },
+  { value:'UTC+1',    cities:'Lagos, Kinshasa, Luanda, Paris, Berlin, Rome, Madrid, Amsterdam, Douala, Tunis, Algiers, Casablanca, Libreville, Bangui, Niamey, Yaoundé, Brazzaville, Malabo, Porto-Novo, Ndjamena, Lomé, Cotonou', label:'UTC+1 Lagos Paris Berlin Rome Madrid Casablanca' },
+  { value:'UTC+2',    cities:'Cairo, Johannesburg, Nairobi area, Athens, Bucharest, Harare, Kigali, Kampala, Lusaka, Lilongwe, Gaborone, Maputo, Windhoek, Tripoli, Juba, Khartoum, Helsinki, Tallinn, Riga, Vilnius, Kyiv',       label:'UTC+2 Cairo Johannesburg Athens Harare Kigali Kampala' },
+  { value:'UTC+3',    cities:'Nairobi, Dar es Salaam, Addis Ababa, Riyadh, Moscow, Mogadishu, Antananarivo, Djibouti, Asmara, Baghdad, Kuwait City, Doha, Istanbul, Minsk, Amman, Beirut, Damascus',                               label:'UTC+3 Nairobi Dar es Salaam Addis Ababa Riyadh Moscow Baghdad' },
+  { value:'UTC+3:30', cities:'Tehran, Iran',                                                                  label:'UTC+3:30 Tehran Iran' },
+  { value:'UTC+4',    cities:'Dubai, Abu Dhabi, Muscat, Baku, Tbilisi, Yerevan, Mahe, Mauritius, Port Louis, Samara', label:'UTC+4 Dubai Abu Dhabi Muscat Baku Tbilisi' },
+  { value:'UTC+4:30', cities:'Kabul, Afghanistan',                                                            label:'UTC+4:30 Kabul Afghanistan' },
+  { value:'UTC+5',    cities:'Karachi, Islamabad, Lahore, Tashkent, Ashgabat, Yekaterinburg, Maldives',      label:'UTC+5 Karachi Islamabad Tashkent' },
+  { value:'UTC+5:30', cities:'New Delhi, Mumbai, Kolkata, Chennai, Bangalore, Colombo, Sri Lanka',           label:'UTC+5:30 New Delhi Mumbai Kolkata Colombo' },
+  { value:'UTC+5:45', cities:'Kathmandu, Nepal',                                                              label:'UTC+5:45 Kathmandu Nepal' },
+  { value:'UTC+6',    cities:'Dhaka, Chittagong, Almaty, Bishkek, Thimphu, Bhutan',                          label:'UTC+6 Dhaka Almaty Bishkek' },
+  { value:'UTC+6:30', cities:'Yangon, Mandalay, Myanmar, Cocos Islands',                                     label:'UTC+6:30 Yangon Myanmar' },
+  { value:'UTC+7',    cities:'Bangkok, Jakarta, Hanoi, Ho Chi Minh City, Phnom Penh, Vientiane, Novosibirsk, Krasnoyarsk', label:'UTC+7 Bangkok Jakarta Hanoi Ho Chi Minh' },
+  { value:'UTC+8',    cities:'Beijing, Shanghai, Singapore, Kuala Lumpur, Perth, Manila, Hong Kong, Taipei, Ulaanbaatar, Makassar, Denpasar', label:'UTC+8 Beijing Singapore Kuala Lumpur Perth Manila Hong Kong' },
+  { value:'UTC+8:45', cities:'Eucla, Australia',                                                              label:'UTC+8:45 Eucla Australia' },
+  { value:'UTC+9',    cities:'Tokyo, Osaka, Seoul, Pyongyang, Yakutsk, Palau',                               label:'UTC+9 Tokyo Osaka Seoul' },
+  { value:'UTC+9:30', cities:'Adelaide, Darwin, Australia Central',                                          label:'UTC+9:30 Adelaide Darwin' },
+  { value:'UTC+10',   cities:'Sydney, Melbourne, Brisbane, Canberra, Vladivostok, Port Moresby, Guam',       label:'UTC+10 Sydney Melbourne Brisbane Vladivostok' },
+  { value:'UTC+10:30',cities:'Lord Howe Island, Australia',                                                   label:'UTC+10:30 Lord Howe Island' },
+  { value:'UTC+11',   cities:'Noumea, New Caledonia, Honiara, Solomon Islands, Magadan, Vanuatu',            label:'UTC+11 Noumea Solomon Islands' },
+  { value:'UTC+12',   cities:'Auckland, Wellington, Fiji, Suva, Kamchatka, Marshall Islands, Tarawa',        label:'UTC+12 Auckland Wellington Fiji' },
+  { value:'UTC+12:45',cities:'Chatham Islands, New Zealand',                                                  label:'UTC+12:45 Chatham Islands' },
+  { value:'UTC+13',   cities:'Nuku\'alofa, Tonga, Samoa, Apia, Phoenix Islands',                             label:'UTC+13 Tongatapu Samoa Apia' },
+  { value:'UTC+14',   cities:'Kiritimati, Line Islands, Kiribati',                                            label:'UTC+14 Kiritimati Kiribati' },
+];
