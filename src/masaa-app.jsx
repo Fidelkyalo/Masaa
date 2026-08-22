@@ -332,7 +332,24 @@ export default function MASAAApp() {
             onDeleteGoal={id=>upd({goals:(data.goals||[]).filter(g=>g.id!==id)})}
             onUpdateGoal={g=>upd({goals:(data.goals||[]).map(x=>x.id===g.id?g:x)})}
             onLinkTask={(gid,tid)=>upd({goals:(data.goals||[]).map(g=>g.id===gid?{...g,linkedTasks:[...(g.linkedTasks||[]),tid]}:g)})} />}
-          {page==='sharing'   && <SharingPage events={data.events} calendars={data.calendars} sharedCalendars={data.sharedCalendars||[]} theme={theme} onShareCalendar={sc => upd({ sharedCalendars:[...(data.sharedCalendars||[]),sc] })} onRemoveShare={id => upd({ sharedCalendars:(data.sharedCalendars||[]).filter(s=>s.id!==id) })} onUpdateShare={(id,perm) => upd({ sharedCalendars:(data.sharedCalendars||[]).map(s=>s.id===id?{...s,permission:perm}:s) })} />}
+          {page==='sharing'   && <SharingPage events={data.events} calendars={data.calendars} sharedCalendars={data.sharedCalendars||[]} theme={theme}
+            onShareCalendar={sc => {
+              const calName = data.calendars.find(c=>c.id===sc.calendarId)?.name || 'Calendar';
+              const notif = {
+                id: 'notif_share_' + Date.now(),
+                type: 'invite',
+                title: '📅 Calendar Shared With You',
+                message: `${session?.name || 'A user'} shared their "${calName}" calendar with ${sc.email} (${sc.permission.toUpperCase()} access).`,
+                time: 'Just now',
+                read: false
+              };
+              upd({
+                sharedCalendars: [...(data.sharedCalendars||[]), sc],
+                notifications: [notif, ...(data.notifications||[])]
+              });
+            }}
+            onRemoveShare={id => upd({ sharedCalendars:(data.sharedCalendars||[]).filter(s=>s.id!==id) })}
+            onUpdateShare={(id,perm) => upd({ sharedCalendars:(data.sharedCalendars||[]).map(s=>s.id===id?{...s,permission:perm}:s) })} />}
           {page==='analytics' && <AnalyticsPage events={data.events} tasks={data.tasks} />}
           {page==='reports'   && <ReportsPage events={data.events} tasks={data.tasks} user={session} theme={theme} />}
           {page==='settings'  && <SettingsPage user={session} theme={theme} updateUser={u => { setSession(u); localStorage.setItem('masaa_session',JSON.stringify(u)); upd({ user:u }); }} />}
