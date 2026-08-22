@@ -170,8 +170,8 @@ function nextWeekday(target) {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function MASAAApp() {
   const [session, setSession]   = useState(() => { try { return JSON.parse(localStorage.getItem('masaa_session')); } catch { return null; } });
-  const [data, setData]         = useState(() => { const d=loadData(); return { ...defaultData, ...d }; });
-  const [page, setPage]         = useState('dashboard');
+  const isAdminUser = session?.role === 'admin' || session?.email?.includes('admin') || session?.email?.endsWith('@masaa.app');
+  const [page, setPage]         = useState(() => (isAdminUser ? 'admin' : 'dashboard'));
   const [calView, setCalView]   = useState('month');
   const [sidebar, setSidebar]   = useState(true);
   const [showEvent, setShowEvent]     = useState(false);
@@ -200,7 +200,7 @@ export default function MASAAApp() {
   const upd = (patch) => setData(d => ({ ...d, ...patch }));
   const unread = (data.notifications||[]).filter(n=>!n.read).length;
 
-  const nav = [
+  const baseNav = [
     { id:'dashboard',  label:'Dashboard',  icon:Home      },
     { id:'calendar',   label:'Calendar',   icon:Calendar  },
     { id:'workspace',  label:'Workspace',  icon:Building2 },
@@ -213,6 +213,10 @@ export default function MASAAApp() {
     { id:'reports',    label:'Reports',    icon:Brain     },
     { id:'settings',   label:'Settings',   icon:Settings  },
   ];
+
+  const nav = isAdminUser
+    ? [{ id:'admin', label:'Admin Console', icon:ShieldCheck }, ...baseNav]
+    : baseNav;
 
   const openAdd = (ev=null) => { setEditEvent(ev); setShowEvent(true); };
 
@@ -299,6 +303,7 @@ export default function MASAAApp() {
           </div>
         </header>
         <div className="flex-1 overflow-auto p-4 md:p-8">
+          {page==='admin'     && <AdminPlatform embedded={true} onClose={() => setPage('dashboard')} onSwitchUserView={() => setPage('dashboard')} />}
           {page==='dashboard' && <Dashboard data={data} setPage={setPage} theme={theme} user={session} onAddEvent={() => openAdd(null)} />}
           {page==='calendar'  && <CalendarView events={data.events} calendars={data.calendars} calView={calView} currentDate={currentDate} setCurrentDate={setCurrentDate} theme={theme} onAddEvent={() => openAdd(null)} onEditEvent={ev => openAdd(ev)} onDeleteEvent={id => upd({ events:data.events.filter(e=>e.id!==id) })} />}
           {page==='workspace' && <WorkspacePage type="business" name="MASAA Workspace" theme={theme} />}

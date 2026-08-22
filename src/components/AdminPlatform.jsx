@@ -6,7 +6,7 @@ import {
   Sparkles, ExternalLink, Zap, HelpCircle
 } from 'lucide-react';
 
-export default function AdminPlatform({ onClose, onSwitchUserView }) {
+export default function AdminPlatform({ onClose, onSwitchUserView, embedded = false }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [userFilter, setUserFilter] = useState('all');
@@ -26,7 +26,7 @@ export default function AdminPlatform({ onClose, onSwitchUserView }) {
   };
 
   const usersList = [
-    { id: 1, name: 'Fidel Kyalo', email: 'fidel@masaa.app', role: 'System Admin', plan: 'Enterprise', status: 'Active', org: 'MASAA Inc', joined: '2024-01-10' },
+    { id: 1, name: 'MASAA Admin', email: 'masaa.admin@gmail.com', role: 'System Admin', plan: 'Enterprise', status: 'Active', org: 'MASAA Inc', joined: '2024-01-10' },
     { id: 2, name: 'Sarah Jenkins', email: 'sarah@acmecorp.com', role: 'Org Admin', plan: 'Business', status: 'Active', org: 'Acme Corp', joined: '2024-02-15' },
     { id: 3, name: 'Pastor David Omondi', email: 'pastor@gracechurch.org', role: 'Church Manager', plan: 'Pro', status: 'Active', org: 'Grace Church Nairobi', joined: '2024-03-01' },
     { id: 4, name: 'Dr. Michael Chen', email: 'mchen@stanford.edu', role: 'School Admin', plan: 'Enterprise', status: 'Active', org: 'Stanford Dept of CS', joined: '2024-03-12' },
@@ -54,7 +54,6 @@ export default function AdminPlatform({ onClose, onSwitchUserView }) {
     e.preventDefault();
     if (!aiQuery.trim()) return;
     
-    // Simulate AI response for platform admin queries
     setAiResponse({
       query: aiQuery,
       text: `Based on current platform analytics: Revenue grew 18.4% month-over-month, primarily driven by Business tier conversions in East Africa. AI token usage is within expected thresholds ($1.2k spent vs $4.5k budgeted). Recommendation: Consider expanding localized M-Pesa subscription options.`,
@@ -62,8 +61,12 @@ export default function AdminPlatform({ onClose, onSwitchUserView }) {
     });
   };
 
+  const containerClass = embedded
+    ? "w-full h-full bg-slate-950 text-slate-100 font-sans rounded-2xl overflow-hidden flex flex-col shadow-2xl border border-slate-800"
+    : "fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md overflow-hidden flex flex-col text-slate-100 font-sans";
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md overflow-hidden flex flex-col text-slate-100 font-sans">
+    <div className={containerClass}>
       {/* Top Header */}
       <header className="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
