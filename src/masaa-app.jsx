@@ -170,6 +170,7 @@ function nextWeekday(target) {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function MASAAApp() {
   const [session, setSession]   = useState(() => { try { return JSON.parse(localStorage.getItem('masaa_session')); } catch { return null; } });
+  const [data, setData]         = useState(() => { const d=loadData(); return { ...defaultData, ...d }; });
   const isAdminUser = Boolean(session?.role === 'admin' || session?.email?.toLowerCase().includes('admin') || session?.email?.toLowerCase().endsWith('@masaa.app'));
   const [page, setPage]         = useState(() => (isAdminUser ? 'admin' : 'dashboard'));
   const [calView, setCalView]   = useState('month');
