@@ -225,8 +225,10 @@ export default function MASAAApp() {
         <header style={{ background:'var(--color-card)', borderBottom:'1px solid rgba(128,128,128,0.2)' }} className="sticky top-0 z-30 px-4 md:px-6 py-3 flex justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebar(!sidebar)} className="p-2 rounded-lg hover:bg-black/10 transition"><Menu size={22} style={{ color:'var(--color-text)' }}/></button>
-            <img src="/logo.png" alt="MASAA" className="w-7 h-7 rounded-lg object-contain hidden sm:block" style={{ background:'var(--color-primary)', padding:'2px' }} />
-            <span className="font-bold text-lg hidden sm:block" style={{ color:'var(--color-primary)' }}>MASAA</span>
+            <div onClick={() => setPage('dashboard')} className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition" title="Go to Dashboard">
+              <img src="/logo.png" alt="MASAA" className="w-7 h-7 rounded-lg object-contain hidden sm:block" style={{ background:'var(--color-primary)', padding:'2px' }} />
+              <span className="font-bold text-lg hidden sm:block" style={{ color:'var(--color-primary)' }}>MASAA</span>
+            </div>
           </div>
           {page==='calendar' && (
             <div className="flex gap-1 rounded-lg overflow-hidden border" style={{ borderColor:'var(--color-primary)' }}>
@@ -374,7 +376,7 @@ function Sidebar({ nav, page, setPage, open, setOpen, theme, onLogout }) {
     );
   });
   const Logo = () => (
-    <div className="p-5 border-b border-white/20">
+    <div className="p-5 border-b border-white/20 cursor-pointer hover:bg-white/5 transition" onClick={() => setPage('dashboard')} title="Go to Dashboard">
       <div className="flex items-center gap-3">
         <img src="/logo.png" alt="MASAA" className="w-10 h-10 rounded-xl object-contain bg-white p-0.5 flex-shrink-0" />
         <div>
@@ -401,7 +403,7 @@ function Sidebar({ nav, page, setPage, open, setOpen, theme, onLogout }) {
       {open && <div className="fixed md:hidden inset-0 bg-black/50 z-40" onClick={() => setOpen(false)}/>}
       <div style={style} className={`fixed md:hidden top-0 left-0 h-screen w-64 z-50 flex flex-col transition-transform duration-300 ${open?'translate-x-0':'-translate-x-full'}`}>
         <div className="p-5 border-b border-white/20 flex justify-between items-center">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setPage('dashboard'); setOpen(false); }}>
             <img src="/logo.png" alt="MASAA" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 flex-shrink-0" />
             <div>
               <h1 className="text-lg font-bold text-white leading-tight">MASAA</h1>
