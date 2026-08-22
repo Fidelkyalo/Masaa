@@ -1,0 +1,29 @@
+{
+  "name": "masaa-mobile",
+  "version": "1.0.0",
+  "description": "MASAA Mobile Application - Intelligent Scheduling On The Go",
+  "main": "App.jsx",
+  "scripts": {
+    "start": "react-native start",
+    "android": "react-native run-android",
+    "ios": "react-native run-ios"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^1.23.1",
+    "@react-navigation/bottom-tabs": "^6.5.20",
+    "@react-navigation/native": "^6.1.17",
+    "lucide-react": "^1.29.0",
+    "react": "^19.2.8",
+    "react-native": "^0.74.1",
+    "zustand": "^4.5.2"
+  },
+  "keywords": [
+    "masaa",
+    "mobile",
+    "react-native",
+    "calendar",
+    "productivity"
+  ],
+  "author": "MASAA Team",
+  "license": "MIT"
+}
