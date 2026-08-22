@@ -170,7 +170,7 @@ function nextWeekday(target) {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function MASAAApp() {
   const [session, setSession]   = useState(() => { try { return JSON.parse(localStorage.getItem('masaa_session')); } catch { return null; } });
-  const isAdminUser = session?.role === 'admin' || session?.email?.includes('admin') || session?.email?.endsWith('@masaa.app');
+  const isAdminUser = Boolean(session?.role === 'admin' || session?.email?.toLowerCase().includes('admin') || session?.email?.toLowerCase().endsWith('@masaa.app'));
   const [page, setPage]         = useState(() => (isAdminUser ? 'admin' : 'dashboard'));
   const [calView, setCalView]   = useState('month');
   const [sidebar, setSidebar]   = useState(true);
@@ -186,6 +186,12 @@ export default function MASAAApp() {
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showWorkflowModal, setShowWorkflowModal] = useState(false);
   const notifRef = useRef(null);
+
+  useEffect(() => {
+    if (isAdminUser && !sessionStorage.getItem('masaa_user_view')) {
+      setPage('admin');
+    }
+  }, [session?.email, isAdminUser]);
 
   const theme = THEMES.find(t => t.id === (session?.themeId || data?.user?.themeId || 'blue-white')) || THEMES[0];
   useEffect(() => { applyTheme(theme); }, [theme]);
