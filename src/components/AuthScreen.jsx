@@ -17,7 +17,20 @@ export default function AuthScreen({ onLogin }) {
     if (!email || !password) { setError('Email and password are required.'); return; }
     if (mode === 'register' && !name) { setError('Name is required.'); return; }
 
-    const users = JSON.parse(localStorage.getItem('masaa_users') || '[]');
+    let users = JSON.parse(localStorage.getItem('masaa_users') || '[]');
+    // Ensure default system admin account exists
+    if (!users.find(u => u.email === 'masaa.admin@gmail.com')) {
+      users.push({
+        id: 'usr_admin',
+        name: 'MASAA Admin',
+        email: 'masaa.admin@gmail.com',
+        password: 'Admin123',
+        timezone: 'UTC+3',
+        themeId: 'blue-white',
+        role: 'admin'
+      });
+      localStorage.setItem('masaa_users', JSON.stringify(users));
+    }
 
     if (mode === 'register') {
       if (users.find(u => u.email === email)) { setError('An account with this email already exists.'); return; }
@@ -28,7 +41,11 @@ export default function AuthScreen({ onLogin }) {
       localStorage.setItem('masaa_session', JSON.stringify({ id: user.id, name, email, timezone:'UTC+3', themeId:'blue-white', role }));
       onLogin({ id: user.id, name, email, timezone:'UTC+3', themeId:'blue-white', role });
     } else {
-      const user = users.find(u => u.email === email && u.password === password);
+      let user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+      // Allow masaa.admin@gmail.com login even if fresh
+      if (!user && email.toLowerCase() === 'masaa.admin@gmail.com' && password === 'Admin123') {
+        user = { id: 'usr_admin', name: 'MASAA Admin', email: 'masaa.admin@gmail.com', timezone: 'UTC+3', themeId: 'blue-white', role: 'admin' };
+      }
       if (!user) { setError('Invalid email or password.'); return; }
       const role = user.role || ((user.email.toLowerCase().includes('admin') || user.email.toLowerCase().endsWith('@masaa.app')) ? 'admin' : 'client');
       localStorage.setItem('masaa_session', JSON.stringify({ id: user.id, name: user.name, email: user.email, timezone: user.timezone, themeId: user.themeId, role }));
@@ -92,14 +109,18 @@ export default function AuthScreen({ onLogin }) {
             </p>
           </div>
 
-          {/* Demo hint */}
-          <div className="mt-4 p-3 rounded-xl text-center" style={{ background:`var(--color-primary)15` }}>
-            <p className="text-xs font-medium" style={{ color:'var(--color-primary)' }}>
-              Demo: register any email &amp; password to get started instantly
+          {/* Admin Credentials Hint */}
+          <div className="mt-4 p-3 rounded-xl text-center space-y-1" style={{ background:`var(--color-primary)15` }}>
+            <p className="text-xs font-bold" style={{ color:'var(--color-primary)' }}>
+              🔑 System Admin Account:
+            </p>
+            <p className="text-xs font-mono" style={{ color:'var(--color-text)' }}>
+              <span className="font-semibold">Email:</span> masaa.admin@gmail.com | <span className="font-semibold">Pass:</span> Admin123
             </p>
           </div>
         </div>
       </div>
     </div>
+
   );
 }

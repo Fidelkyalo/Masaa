@@ -10,6 +10,18 @@ const DB_FILE = path.join(__dirname, 'masaa_db.json');
 const initialDatabase = {
   users: [
     {
+      id: 'usr_admin',
+      name: 'MASAA Admin',
+      email: 'masaa.admin@gmail.com',
+      password_hash: '$2a$10$wT0lqY8JmDqF1x4Y/u8PneL6WzCqN1K6jK3u6lqZ7lJ4L7d.9J5xK', // 'Admin123'
+      timezone: 'UTC+3',
+      theme_id: 'blue-white',
+      plan: 'Enterprise',
+      country: 'Kenya',
+      role: 'admin',
+      created_at: new Date().toISOString()
+    },
+    {
       id: 'usr_1',
       name: 'Fidel Kyalo',
       email: 'fidel@masaa.app',
