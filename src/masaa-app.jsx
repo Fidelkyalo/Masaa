@@ -18,6 +18,9 @@ import WorkspacePage           from './components/WorkspacePage.jsx';
 import AdminPlatform           from './components/AdminPlatform.jsx';
 import EventRegistrationModal  from './components/EventRegistrationModal.jsx';
 import IntegrationsModal       from './components/IntegrationsModal.jsx';
+import VoiceSchedulingModal    from './components/VoiceSchedulingModal.jsx';
+import WorkflowAutomationModal from './components/WorkflowAutomationModal.jsx';
+
 
 
 // ─── 50 THEMES ────────────────────────────────────────────────────────────────
@@ -180,6 +183,8 @@ export default function MASAAApp() {
   const [showIntegrations, setShowIntegrations] = useState(false);
   const [showQRModal, setShowQRModal]       = useState(false);
   const [selectedQREvent, setSelectedQREvent] = useState(null);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showWorkflowModal, setShowWorkflowModal] = useState(false);
   const notifRef = useRef(null);
 
   const theme = THEMES.find(t => t.id === (session?.themeId || data?.user?.themeId || 'blue-white')) || THEMES[0];
@@ -235,6 +240,16 @@ export default function MASAAApp() {
           {/* Natural language input */}
           <NLInput contacts={data.contacts||[]} onCreate={ev => { upd({ events:[...data.events,{...ev,id:Date.now().toString()}] }); }} />
           <div className="flex items-center gap-2">
+            {/* Voice Scheduler shortcut */}
+            <button onClick={() => setShowVoiceModal(true)} title="Voice Assistant Scheduler"
+              className="p-2 hover:bg-red-500/20 text-red-500 rounded-lg transition flex items-center gap-1">
+              <Mic size={20}/>
+            </button>
+            {/* Workflow Automations shortcut */}
+            <button onClick={() => setShowWorkflowModal(true)} title="Workflow Automations"
+              className="p-2 hover:bg-indigo-500/20 text-indigo-500 rounded-lg transition flex items-center gap-1">
+              <Zap size={20}/>
+            </button>
             {/* Admin Console shortcut */}
             <button onClick={() => setShowAdmin(true)} title="MASAA Admin Console"
               className="p-2 hover:bg-amber-500/20 text-amber-500 rounded-lg transition flex items-center gap-1">
@@ -313,6 +328,8 @@ export default function MASAAApp() {
       {showAdmin && <AdminPlatform onClose={() => setShowAdmin(false)} onSwitchUserView={() => setShowAdmin(false)} />}
       {showIntegrations && <IntegrationsModal onClose={() => setShowIntegrations(false)} />}
       {showQRModal && <EventRegistrationModal event={selectedQREvent || data.events[0]} onClose={() => { setShowQRModal(false); setSelectedQREvent(null); }} />}
+      {showVoiceModal && <VoiceSchedulingModal contacts={data.contacts||[]} onCreateEvent={ev => upd({ events:[...data.events,{...ev,id:Date.now().toString()}] })} onClose={() => setShowVoiceModal(false)} />}
+      {showWorkflowModal && <WorkflowAutomationModal onClose={() => setShowWorkflowModal(false)} />}
     </div>
   );
 }

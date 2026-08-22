@@ -12,6 +12,7 @@ import workspaceRoutes from './routes/workspaces.js';
 import aiRoutes from './routes/ai.js';
 import adminRoutes from './routes/admin.js';
 import paymentRoutes from './routes/payments.js';
+import developerRoutes from './routes/developer.js';
 import { authenticateToken } from './middleware/auth.js';
 
 dotenv.config();
@@ -49,7 +50,8 @@ app.get('/api/v1/health', (req, res) => {
       database: 'Connected',
       auth: 'JWT Active',
       ai: 'Ready',
-      payments: 'M-Pesa + Stripe Active'
+      payments: 'M-Pesa + Stripe Active',
+      developer: 'Public API Engine Ready'
     }
   });
 });
@@ -65,6 +67,8 @@ app.use('/api/v1/workspaces', authenticateToken, workspaceRoutes);
 app.use('/api/v1/ai', authenticateToken, aiRoutes);
 app.use('/api/v1/admin', authenticateToken, adminRoutes);
 app.use('/api/v1/payments', authenticateToken, paymentRoutes);
+app.use('/api/v1/developer', authenticateToken, developerRoutes);
+
 
 // 404 Handler
 app.use((req, res) => {
