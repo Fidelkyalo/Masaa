@@ -29,6 +29,11 @@
 - 🧠 **LLM AI Assistant**: Predictive schedule analyzer, burnout shield & morning briefing generator.
 - 🎟️ **QR Ticket Registration**: Automated event registration links with instant QR pass generation.
 - 📱 **Mobile Native App (`masaa-mobile/`)**: Cross-platform React Native companion app.
+- 🔑 How to Experience the Admin Console Live
+Log in at https://masaa-app.vercel.app (or locally) with:
+Email: masaa.admin@gmail.com
+Password: Admin123
+Click the Gold Shield Icon (ShieldCheck) in the top navigation bar to open the full Executive Admin Console!
 
 ---
 
