@@ -105,21 +105,90 @@ const defaultData = {
   goals:[],
 };
 
-function loadData(userId) {
+const GLOBAL_SHARES_KEY = 'masaa_global_shares';
+
+function getGlobalShares(email) {
+  if (!email) return [];
+  try {
+    const raw = localStorage.getItem(GLOBAL_SHARES_KEY);
+    const shares = raw ? JSON.parse(raw) : [];
+    return shares.filter(s => s.recipientEmail.toLowerCase() === email.toLowerCase());
+  } catch {
+    return [];
+  }
+}
+
+function addGlobalShare(shareItem) {
+  try {
+    const raw = localStorage.getItem(GLOBAL_SHARES_KEY);
+    const shares = raw ? JSON.parse(raw) : [];
+    shares.push(shareItem);
+    localStorage.setItem(GLOBAL_SHARES_KEY, JSON.stringify(shares));
+  } catch {}
+}
+
+function loadData(userId, userEmail) {
   try {
     const key = userId ? `masaa_data_${userId}` : STORAGE_KEY;
     const s = localStorage.getItem(key);
-    return s ? { ...defaultData, ...JSON.parse(s) } : defaultData;
+    let data = s ? { ...defaultData, ...JSON.parse(s) } : { ...defaultData };
+
+    if (userEmail) {
+      const incoming = getGlobalShares(userEmail);
+      let updated = false;
+      const existingShares = data.sharedCalendars || [];
+      const existingNotifs = data.notifications || [];
+
+      incoming.forEach(inc => {
+        if (!existingShares.some(e => e.id === inc.id || (e.email === inc.senderEmail && e.calendarId === inc.calendarId))) {
+          existingShares.unshift({
+            id: inc.id,
+            calendarId: inc.calendarId,
+            calendarName: inc.calendarName,
+            email: inc.senderEmail,
+            senderName: inc.senderName,
+            permission: inc.permission,
+            sharedAt: inc.createdAt,
+            events: inc.events || []
+          });
+          existingNotifs.unshift({
+            id: 'notif_inc_' + inc.id,
+            type: 'invite',
+            title: '📅 Calendar Shared With You',
+            message: `${inc.senderName || inc.senderEmail} shared their "${inc.calendarName}" calendar with you (${inc.permission.toUpperCase()} access).`,
+            time: 'Just now',
+            read: false
+          });
+          updated = true;
+        }
+      });
+
+      if (updated) {
+        data.sharedCalendars = existingShares;
+        data.notifications = existingNotifs;
+        incoming.forEach(inc => {
+          (inc.events || []).forEach(ev => {
+            if (!data.events.some(e => e.id === ev.id)) {
+              data.events.push({ ...ev, sharedFrom: inc.senderName || inc.senderEmail });
+            }
+          });
+        });
+        localStorage.setItem(key, JSON.stringify(data));
+      }
+    }
+    return data;
   } catch {
     return defaultData;
   }
 }
+
 function saveData(d, userId) {
   try {
     const key = userId ? `masaa_data_${userId}` : STORAGE_KEY;
     localStorage.setItem(key, JSON.stringify(d));
   } catch {}
 }
+
 function applyTheme(t) {
   const r=document.documentElement;
   r.style.setProperty('--color-primary',t.primary); r.style.setProperty('--color-secondary',t.secondary);
@@ -164,15 +233,15 @@ function nextWeekday(target) {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function MASAAApp() {
   const [session, setSession]   = useState(() => { try { return JSON.parse(localStorage.getItem('masaa_session')); } catch { return null; } });
-  const [data, setData]         = useState(() => loadData(session?.id));
+  const [data, setData]         = useState(() => loadData(session?.id, session?.email));
   const isAdminUser = Boolean(session?.role === 'admin' || session?.email?.toLowerCase().includes('admin') || session?.email?.toLowerCase().endsWith('@masaa.app'));
   const [page, setPage]         = useState(() => (isAdminUser ? 'admin' : 'dashboard'));
 
   useEffect(() => {
     if (session?.id) {
-      setData(loadData(session.id));
+      setData(loadData(session.id, session.email));
     }
-  }, [session?.id]);
+  }, [session?.id, session?.email]);
 
   useEffect(() => {
     if (session?.id) {
@@ -334,12 +403,27 @@ export default function MASAAApp() {
             onLinkTask={(gid,tid)=>upd({goals:(data.goals||[]).map(g=>g.id===gid?{...g,linkedTasks:[...(g.linkedTasks||[]),tid]}:g)})} />}
           {page==='sharing'   && <SharingPage events={data.events} calendars={data.calendars} sharedCalendars={data.sharedCalendars||[]} theme={theme}
             onShareCalendar={sc => {
-              const calName = data.calendars.find(c=>c.id===sc.calendarId)?.name || 'Calendar';
+              const calObj = data.calendars.find(c=>c.id===sc.calendarId);
+              const calName = calObj?.name || 'Calendar';
+              const calEvents = (data.events||[]).filter(e=>e.calendarId===sc.calendarId||e.category===sc.calendarId);
+
+              addGlobalShare({
+                id: 'gshare_' + Date.now() + Math.random(),
+                senderName: session?.name || 'MASAA User',
+                senderEmail: session?.email || '',
+                recipientEmail: sc.email.trim(),
+                calendarId: sc.calendarId,
+                calendarName: calName,
+                permission: sc.permission,
+                createdAt: new Date().toLocaleDateString(),
+                events: calEvents
+              });
+
               const notif = {
                 id: 'notif_share_' + Date.now(),
                 type: 'invite',
-                title: '📅 Calendar Shared With You',
-                message: `${session?.name || 'A user'} shared their "${calName}" calendar with ${sc.email} (${sc.permission.toUpperCase()} access).`,
+                title: '📅 Calendar Shared Successfully',
+                message: `You shared "${calName}" calendar with ${sc.email} (${sc.permission.toUpperCase()} access). Delivered to their account!`,
                 time: 'Just now',
                 read: false
               };
