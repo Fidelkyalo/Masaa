@@ -3,8 +3,10 @@ import {
   Calendar, Plus, Clock, CheckCircle2, Settings, Bell,
   LogOut, Menu, X, ChevronLeft, ChevronRight, Trash2,
   Edit2, Share2, Home, BookOpen, ListTodo, Users, BarChart2,
-  Repeat, AlarmClock, Palette, Mic, Send, Brain, Target
+  Repeat, AlarmClock, Palette, Mic, Send, Brain, Target,
+  Building2, ShieldCheck, Zap, Ticket
 } from 'lucide-react';
+
 import AuthScreen         from './components/AuthScreen.jsx';
 import ContactsPage       from './components/ContactsPage.jsx';
 import AnalyticsPage      from './components/AnalyticsPage.jsx';
@@ -12,6 +14,11 @@ import NotificationCenter from './components/NotificationCenter.jsx';
 import ReportsPage        from './components/ReportsPage.jsx';
 import GoalsPage          from './components/GoalsPage.jsx';
 import AIAssistant, { parseNaturalEventEnhanced, suggestPriority } from './components/AIAssistant.jsx';
+import WorkspacePage           from './components/WorkspacePage.jsx';
+import AdminPlatform           from './components/AdminPlatform.jsx';
+import EventRegistrationModal  from './components/EventRegistrationModal.jsx';
+import IntegrationsModal       from './components/IntegrationsModal.jsx';
+
 
 // ─── 50 THEMES ────────────────────────────────────────────────────────────────
 export const THEMES = [
@@ -169,6 +176,10 @@ export default function MASAAApp() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showNotif, setShowNotif]     = useState(false);
   const [showAI, setShowAI]           = useState(false);
+  const [showAdmin, setShowAdmin]           = useState(false);
+  const [showIntegrations, setShowIntegrations] = useState(false);
+  const [showQRModal, setShowQRModal]       = useState(false);
+  const [selectedQREvent, setSelectedQREvent] = useState(null);
   const notifRef = useRef(null);
 
   const theme = THEMES.find(t => t.id === (session?.themeId || data?.user?.themeId || 'blue-white')) || THEMES[0];
@@ -187,6 +198,7 @@ export default function MASAAApp() {
   const nav = [
     { id:'dashboard',  label:'Dashboard',  icon:Home      },
     { id:'calendar',   label:'Calendar',   icon:Calendar  },
+    { id:'workspace',  label:'Workspace',  icon:Building2 },
     { id:'booking',    label:'Booking',    icon:BookOpen  },
     { id:'tasks',      label:'Tasks',      icon:ListTodo  },
     { id:'contacts',   label:'Contacts',   icon:Users     },
@@ -213,7 +225,7 @@ export default function MASAAApp() {
           </div>
           {page==='calendar' && (
             <div className="flex gap-1 rounded-lg overflow-hidden border" style={{ borderColor:'var(--color-primary)' }}>
-              {['month','week','day','year'].map(v => (
+              {['month','week','day','agenda','year'].map(v => (
                 <button key={v} onClick={() => setCalView(v)}
                   style={{ background:calView===v?'var(--color-primary)':'transparent', color:calView===v?'#fff':'var(--color-primary)' }}
                   className="px-3 py-1 text-xs font-semibold capitalize transition">{v}</button>
@@ -222,7 +234,22 @@ export default function MASAAApp() {
           )}
           {/* Natural language input */}
           <NLInput contacts={data.contacts||[]} onCreate={ev => { upd({ events:[...data.events,{...ev,id:Date.now().toString()}] }); }} />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Admin Console shortcut */}
+            <button onClick={() => setShowAdmin(true)} title="MASAA Admin Console"
+              className="p-2 hover:bg-amber-500/20 text-amber-500 rounded-lg transition flex items-center gap-1">
+              <ShieldCheck size={20}/>
+            </button>
+            {/* Integrations & Pricing shortcut */}
+            <button onClick={() => setShowIntegrations(true)} title="Integrations & Plans"
+              className="p-2 hover:bg-blue-500/20 text-blue-500 rounded-lg transition flex items-center gap-1">
+              <Zap size={20}/>
+            </button>
+            {/* Event QR Tickets shortcut */}
+            <button onClick={() => setShowQRModal(true)} title="QR Event Registration & Tickets"
+              className="p-2 hover:bg-purple-500/20 text-purple-500 rounded-lg transition flex items-center gap-1">
+              <Ticket size={20}/>
+            </button>
             {/* AI Assistant button */}
             <button onClick={() => setShowAI(true)} title="AI Scheduling Assistant"
               className="p-2 hover:bg-black/10 rounded-lg transition hidden sm:flex items-center gap-1"
@@ -255,6 +282,7 @@ export default function MASAAApp() {
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {page==='dashboard' && <Dashboard data={data} setPage={setPage} theme={theme} user={session} onAddEvent={() => openAdd(null)} />}
           {page==='calendar'  && <CalendarView events={data.events} calendars={data.calendars} calView={calView} currentDate={currentDate} setCurrentDate={setCurrentDate} theme={theme} onAddEvent={() => openAdd(null)} onEditEvent={ev => openAdd(ev)} onDeleteEvent={id => upd({ events:data.events.filter(e=>e.id!==id) })} />}
+          {page==='workspace' && <WorkspacePage type="business" name="MASAA Workspace" theme={theme} />}
           {page==='booking'   && <BookingPage bookingPage={data.bookingPage} events={data.events} theme={theme} update={bp => upd({ bookingPage:bp })} />}
           {page==='tasks'     && <TasksView tasks={data.tasks} theme={theme}
             onAdd={t => upd({ tasks:[...data.tasks,{...t,id:Date.now().toString(),subtasks:[]}] })}
@@ -282,6 +310,9 @@ export default function MASAAApp() {
       {showAI && <AIAssistant events={data.events} tasks={data.tasks} contacts={data.contacts||[]} theme={theme}
         onCreateEvent={ev=>{ upd({ events:[...data.events,{...ev,id:Date.now().toString()}] }); }}
         onClose={()=>setShowAI(false)} />}
+      {showAdmin && <AdminPlatform onClose={() => setShowAdmin(false)} onSwitchUserView={() => setShowAdmin(false)} />}
+      {showIntegrations && <IntegrationsModal onClose={() => setShowIntegrations(false)} />}
+      {showQRModal && <EventRegistrationModal event={selectedQREvent || data.events[0]} onClose={() => { setShowQRModal(false); setSelectedQREvent(null); }} />}
     </div>
   );
 }
@@ -482,6 +513,7 @@ function CalendarView({ events, calendars, calView, currentDate, setCurrentDate,
           {calView==='month'&&`${MONTH_NAMES[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
           {calView==='week'&&`Week of ${new Date(currentDate.getFullYear(),currentDate.getMonth(),currentDate.getDate()-currentDate.getDay()).toLocaleDateString()}`}
           {calView==='day'&&currentDate.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}
+          {calView==='agenda'&&'Agenda & Timeline'}
           {calView==='year'&&`${currentDate.getFullYear()}`}
         </h2>
         <div className="flex gap-2">
@@ -490,10 +522,11 @@ function CalendarView({ events, calendars, calView, currentDate, setCurrentDate,
           <button onClick={()=>setCurrentDate(d=>navigate(d,calView,1))} className="p-2 rounded-lg hover:bg-black/10 transition"><ChevronRight size={22} style={{ color:'var(--color-text)' }}/></button>
         </div>
       </div>
-      {calView==='month'&&<MonthGrid events={events} currentDate={currentDate} theme={theme} onEdit={onEditEvent}/>}
-      {calView==='week' &&<WeekGrid  events={events} currentDate={currentDate} theme={theme} onEdit={onEditEvent}/>}
-      {calView==='day'  &&<DayGrid   events={events} currentDate={currentDate} theme={theme} onEdit={onEditEvent}/>}
-      {calView==='year' &&<YearGrid  events={events} currentDate={currentDate} theme={theme} setCurrentDate={setCurrentDate}/>}
+      {calView==='month'  &&<MonthGrid  events={events} currentDate={currentDate} theme={theme} onEdit={onEditEvent}/>}
+      {calView==='week'   &&<WeekGrid   events={events} currentDate={currentDate} theme={theme} onEdit={onEditEvent}/>}
+      {calView==='day'    &&<DayGrid    events={events} currentDate={currentDate} theme={theme} onEdit={onEditEvent}/>}
+      {calView==='agenda' &&<AgendaGrid events={events} currentDate={currentDate} theme={theme} onEdit={onEditEvent}/>}
+      {calView==='year'   &&<YearGrid   events={events} currentDate={currentDate} theme={theme} setCurrentDate={setCurrentDate}/>}
       <button onClick={onAddEvent} className="w-full py-3 rounded-xl text-white font-semibold flex items-center justify-center gap-2 hover:opacity-80 transition" style={{ background:'var(--color-primary)' }}>
         <Plus size={20}/> Add Event
       </button>
@@ -573,6 +606,36 @@ function DayGrid({ events, currentDate, theme, onEdit }) {
           </div>
         </div>;
       })}
+    </div>
+  );
+}
+
+function AgendaGrid({ events, currentDate, theme, onEdit }) {
+  const sorted = [...events].sort((a,b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+  return (
+    <div className="rounded-2xl shadow p-6 space-y-4" style={{ background:'var(--color-card)' }}>
+      <h3 className="text-lg font-bold" style={{ color:'var(--color-text)' }}>Upcoming Agenda & Timeline</h3>
+      {sorted.length === 0 ? (
+        <p className="text-sm py-4" style={{ color:'var(--color-text-light)' }}>No scheduled events found.</p>
+      ) : (
+        <div className="space-y-3">
+          {sorted.map(ev => (
+            <div key={ev.id} onClick={() => onEdit(ev)} className="p-4 rounded-xl border flex items-center justify-between cursor-pointer hover:opacity-90 transition" style={{ borderColor:'rgba(128,128,128,0.15)', background:'var(--color-bg)' }}>
+              <div className="flex items-center space-x-3">
+                <div className="w-3 h-10 rounded-full flex-shrink-0" style={{ background: ev.color || 'var(--color-primary)' }} />
+                <div>
+                  <div className="font-bold text-sm" style={{ color:'var(--color-text)' }}>{ev.title}</div>
+                  <div className="text-xs" style={{ color:'var(--color-text-light)' }}>{ev.date} • {ev.startTime} - {ev.endTime}</div>
+                  {ev.description && <div className="text-xs opacity-75 mt-0.5" style={{ color:'var(--color-text)' }}>{ev.description}</div>}
+                </div>
+              </div>
+              <span className="text-xs font-semibold px-3 py-1 rounded-full text-white" style={{ background: ev.color || 'var(--color-primary)' }}>
+                {ev.category || 'event'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
