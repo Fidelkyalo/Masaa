@@ -87,21 +87,9 @@ const defaultData = {
     { id:'church',   name:'Church',   color:'#8b5cf6' },
     { id:'family',   name:'Family',   color:'#ef4444' },
   ],
-  events: [
-    { id:'1', title:'Team Meeting',  date:new Date().toISOString().split('T')[0], startTime:'10:00', endTime:'11:00', calendarId:'work',     color:'#3b82f6', description:'Weekly sync', attendees:[{email:'john@co.com',status:'accepted'},{email:'sarah@co.com',status:'pending'}], reminders:['15'], recurring:'none', category:'work' },
-    { id:'2', title:'Lunch Break',   date:new Date().toISOString().split('T')[0], startTime:'12:00', endTime:'13:00', calendarId:'personal', color:'#10b981', description:'',           attendees:[], reminders:[], recurring:'none', category:'personal' },
-    { id:'3', title:'Client Call',   date:new Date(Date.now()+86400000).toISOString().split('T')[0], startTime:'14:00', endTime:'15:00', calendarId:'work', color:'#3b82f6', description:'Project discussion', attendees:[{email:'client@co.com',status:'maybe'}], reminders:['30'], recurring:'none', category:'work' },
-  ],
-  tasks: [
-    { id:'1', title:'Finish project proposal', deadline:new Date().toISOString().split('T')[0],              priority:'high',   completed:false, category:'work',     subtasks:[{id:'1a',text:'Write intro',done:false},{id:'1b',text:'Add budget',done:false}] },
-    { id:'2', title:'Review documents',         deadline:new Date(Date.now()+86400000).toISOString().split('T')[0],  priority:'medium', completed:false, category:'work',     subtasks:[] },
-    { id:'3', title:'Call dentist',             deadline:new Date(Date.now()+172800000).toISOString().split('T')[0], priority:'low',    completed:false, category:'personal', subtasks:[] },
-  ],
-  contacts: [
-    { id:'c1', name:'John Kamau',   email:'john@company.com', phone:'+254 700 111 222', category:'Colleague' },
-    { id:'c2', name:'Sarah Wanjiku', email:'sarah@gmail.com',  phone:'+254 722 333 444', category:'Friend'    },
-    { id:'c3', name:'Dr. Otieno',   email:'dr.otieno@clinic.com', phone:'+254 733 555 666', category:'Client' },
-  ],
+  events: [],
+  tasks: [],
+  contacts: [],
   bookingPage: {
     id:'booking-1', title:"My Booking Page", description:'Schedule a meeting with me',
     availability:{
@@ -112,20 +100,26 @@ const defaultData = {
     },
     meetingDuration:30, bufferTime:15, bookings:[],
   },
-  notifications:[
-    { id:'n1', type:'event',  title:'Team Meeting starts soon', message:'Your 10:00 AM meeting starts in 15 minutes.', time:'Just now',  read:false },
-    { id:'n2', type:'task',   title:'Task deadline today',      message:'"Finish project proposal" is due today.',    time:'1 hr ago', read:false },
-    { id:'n3', type:'invite', title:'New invitation',           message:'Sarah invited you to Book Club on Friday.',  time:'2 hr ago', read:true  },
-  ],
+  notifications:[],
   sharedCalendars:[],
-  goals:[
-    { id:'g1', title:'Complete MASAA MVP', category:'Work', deadline: new Date(Date.now()+30*86400000).toISOString().split('T')[0], target:100, current:60, color:'#3b82f6', description:'Ship the full MVP', linkedTasks:['1','2'], createdAt: new Date().toISOString().split('T')[0] },
-    { id:'g2', title:'Read 12 books this year', category:'Learning', deadline: new Date(Date.now()+180*86400000).toISOString().split('T')[0], target:12, current:4, color:'#10b981', description:'', linkedTasks:[], createdAt: new Date().toISOString().split('T')[0] },
-  ],
+  goals:[],
 };
 
-function loadData() { try { const s=localStorage.getItem(STORAGE_KEY); return s?JSON.parse(s):defaultData; } catch { return defaultData; } }
-function saveData(d) { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(d)); } catch {} }
+function loadData(userId) {
+  try {
+    const key = userId ? `masaa_data_${userId}` : STORAGE_KEY;
+    const s = localStorage.getItem(key);
+    return s ? { ...defaultData, ...JSON.parse(s) } : defaultData;
+  } catch {
+    return defaultData;
+  }
+}
+function saveData(d, userId) {
+  try {
+    const key = userId ? `masaa_data_${userId}` : STORAGE_KEY;
+    localStorage.setItem(key, JSON.stringify(d));
+  } catch {}
+}
 function applyTheme(t) {
   const r=document.documentElement;
   r.style.setProperty('--color-primary',t.primary); r.style.setProperty('--color-secondary',t.secondary);
@@ -170,9 +164,21 @@ function nextWeekday(target) {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function MASAAApp() {
   const [session, setSession]   = useState(() => { try { return JSON.parse(localStorage.getItem('masaa_session')); } catch { return null; } });
-  const [data, setData]         = useState(() => { const d=loadData(); return { ...defaultData, ...d }; });
+  const [data, setData]         = useState(() => loadData(session?.id));
   const isAdminUser = Boolean(session?.role === 'admin' || session?.email?.toLowerCase().includes('admin') || session?.email?.toLowerCase().endsWith('@masaa.app'));
   const [page, setPage]         = useState(() => (isAdminUser ? 'admin' : 'dashboard'));
+
+  useEffect(() => {
+    if (session?.id) {
+      setData(loadData(session.id));
+    }
+  }, [session?.id]);
+
+  useEffect(() => {
+    if (session?.id) {
+      saveData(data, session.id);
+    }
+  }, [data, session?.id]);
   const [calView, setCalView]   = useState('month');
   const [sidebar, setSidebar]   = useState(true);
   const [showEvent, setShowEvent]     = useState(false);
