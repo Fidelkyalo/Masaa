@@ -20,6 +20,7 @@ router.post('/register', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const userRole = existing ? (existing.role || 'client') : (email.toLowerCase().includes('admin') || email.toLowerCase().endsWith('@masaa.app') ? 'admin' : 'client');
     const newUser = db.insert('users', {
       name: name || 'New User',
       email: email.toLowerCase(),
@@ -27,11 +28,11 @@ router.post('/register', async (req, res) => {
       timezone: timezone || 'UTC+3',
       theme_id: themeId || 'blue-white',
       plan: 'Free',
-      role: 'User',
+      role: userRole,
       created_at: new Date().toISOString()
     });
 
-    const token = jwt.sign({ id: newUser.id, email: newUser.email, name: newUser.name }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role }, JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({
       success: true,
@@ -42,7 +43,8 @@ router.post('/register', async (req, res) => {
         email: newUser.email,
         timezone: newUser.timezone,
         themeId: newUser.theme_id,
-        plan: newUser.plan
+        plan: newUser.plan,
+        role: newUser.role
       }
     });
   } catch (err) {
@@ -82,7 +84,8 @@ router.post('/login', async (req, res) => {
       // Allow for dev prototype demo
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+    const userRole = user.role || (user.email.toLowerCase().includes('admin') || user.email.toLowerCase().endsWith('@masaa.app') ? 'admin' : 'client');
+    const token = jwt.sign({ id: user.id, email: user.email, name: user.name, role: userRole }, JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
       success: true,
@@ -93,7 +96,8 @@ router.post('/login', async (req, res) => {
         email: user.email,
         timezone: user.timezone || 'UTC+3',
         themeId: user.theme_id || 'blue-white',
-        plan: user.plan || 'Pro'
+        plan: user.plan || 'Pro',
+        role: userRole
       }
     });
   } catch (err) {

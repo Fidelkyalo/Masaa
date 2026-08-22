@@ -21,16 +21,18 @@ export default function AuthScreen({ onLogin }) {
 
     if (mode === 'register') {
       if (users.find(u => u.email === email)) { setError('An account with this email already exists.'); return; }
-      const user = { id: Date.now().toString(), name, email, password, timezone:'UTC+3', themeId:'blue-white' };
+      const role = (email.toLowerCase().includes('admin') || email.toLowerCase().endsWith('@masaa.app')) ? 'admin' : 'client';
+      const user = { id: Date.now().toString(), name, email, password, timezone:'UTC+3', themeId:'blue-white', role };
       users.push(user);
       localStorage.setItem('masaa_users', JSON.stringify(users));
-      localStorage.setItem('masaa_session', JSON.stringify({ id: user.id, name, email, timezone:'UTC+3', themeId:'blue-white' }));
-      onLogin({ id: user.id, name, email, timezone:'UTC+3', themeId:'blue-white' });
+      localStorage.setItem('masaa_session', JSON.stringify({ id: user.id, name, email, timezone:'UTC+3', themeId:'blue-white', role }));
+      onLogin({ id: user.id, name, email, timezone:'UTC+3', themeId:'blue-white', role });
     } else {
       const user = users.find(u => u.email === email && u.password === password);
       if (!user) { setError('Invalid email or password.'); return; }
-      localStorage.setItem('masaa_session', JSON.stringify({ id: user.id, name: user.name, email: user.email, timezone: user.timezone, themeId: user.themeId }));
-      onLogin({ id: user.id, name: user.name, email: user.email, timezone: user.timezone, themeId: user.themeId });
+      const role = user.role || ((user.email.toLowerCase().includes('admin') || user.email.toLowerCase().endsWith('@masaa.app')) ? 'admin' : 'client');
+      localStorage.setItem('masaa_session', JSON.stringify({ id: user.id, name: user.name, email: user.email, timezone: user.timezone, themeId: user.themeId, role }));
+      onLogin({ id: user.id, name: user.name, email: user.email, timezone: user.timezone, themeId: user.themeId, role });
     }
   };
 

@@ -250,11 +250,13 @@ export default function MASAAApp() {
               className="p-2 hover:bg-indigo-500/20 text-indigo-500 rounded-lg transition flex items-center gap-1">
               <Zap size={20}/>
             </button>
-            {/* Admin Console shortcut */}
-            <button onClick={() => setShowAdmin(true)} title="MASAA Admin Console"
-              className="p-2 hover:bg-amber-500/20 text-amber-500 rounded-lg transition flex items-center gap-1">
-              <ShieldCheck size={20}/>
-            </button>
+            {/* Admin Console shortcut (Admin only) */}
+            {(session?.role === 'admin' || session?.email?.includes('admin') || session?.email?.endsWith('@masaa.app')) && (
+              <button onClick={() => setShowAdmin(true)} title="MASAA Admin Console"
+                className="p-2 hover:bg-amber-500/20 text-amber-500 rounded-lg transition flex items-center gap-1">
+                <ShieldCheck size={20}/>
+              </button>
+            )}
             {/* Integrations & Pricing shortcut */}
             <button onClick={() => setShowIntegrations(true)} title="Integrations & Plans"
               className="p-2 hover:bg-blue-500/20 text-blue-500 rounded-lg transition flex items-center gap-1">
